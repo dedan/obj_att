@@ -5,7 +5,6 @@
     http://www.ros.org/wiki/pcl/Tutorials/Range%20image%20visualization
     http://www.ros.org/wiki/pcl/Tutorials/Range%20image%20creation#Tutorial_code
     http://pointclouds.org/documentation/tutorials/kinect_grabber.php
-    http://www.ros.org/wiki/pcl_ros/Tutorials/CloudToImage
  */
 
 #include <pcl/point_cloud.h>
@@ -28,7 +27,15 @@ class SimpleRangeViewer
 
 
     // the function which is called regularly for visualization
-    void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
+    void cloud_cb_ (const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr &cloud)
+    {
+        if (!cloud_viewer.wasStopped())
+          cloud_viewer.showCloud(*cloud);
+    }
+
+
+    // the function which is called regularly for visualization
+    void range_cb_ (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
     {
 
         pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
@@ -40,15 +47,13 @@ class SimpleRangeViewer
         float minRange              = 0.0f;
         int borderSize              = 0;
 
-        if (!cloud_viewer.wasStopped())
-          cloud_viewer.showCloud(*cloud);
-
         pcl::RangeImage rangeImage;
         rangeImage.createFromPointCloud(*cloud, angularResolution, maxAngleWidth, maxAngleHeight,
                                         sensorPose, coordinate_frame, noiseLevel, minRange, borderSize);
         range_viewer.setRangeImage(rangeImage, 0., 1000., true);
     }
-    
+
+
 
     // the function which is called to run the class
     void run ()
@@ -57,10 +62,16 @@ class SimpleRangeViewer
         // interface to the NI (from here we read the pointcloud
         pcl::Grabber* interface = new pcl::OpenNIGrabber();
 
-        boost::function<void (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr&)> f =
+        boost::function<void (const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr&)> f =
             boost::bind (&SimpleRangeViewer::cloud_cb_, this, _1);
 
+        boost::function<void (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr&)> g =
+            boost::bind (&SimpleRangeViewer::range_cb_, this, _1);
+
+
       boost::signals2::connection c = interface->registerCallback (f);
+      boost::signals2::connection d = interface->registerCallback (g);
+
       
       interface->start ();      
       while(!cloud_viewer.wasStopped() || range_viewer.isShown())
