@@ -12,6 +12,8 @@ find_package(OpenNI)
 include_directories(${OPENNI_INCLUDE_DIRS})
 
 find_package(wxWidgets)
+include(${wxWidgets_USE_FILE})
+include_directories(${wxWidgets_INCLUDE_DIRS})
 
 find_package(VTK)
 include(${VTK_USE_FILE})
@@ -20,4 +22,3 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # make and link executable
 add_executable(obj_att main.cpp)
 target_link_libraries(obj_att ${PCL_LIBRARIES})
-
