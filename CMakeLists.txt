@@ -19,6 +19,14 @@ find_package(VTK)
 include(${VTK_USE_FILE})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+FIND_PACKAGE( OpenCV REQUIRED )
+
+
 # make and link executable
 add_executable(obj_att main.cpp)
 target_link_libraries(obj_att ${PCL_LIBRARIES})
+MESSAGE(${PCL_LIBRARIES})
+
+
+add_executable(cv_test cv_test.cpp)
+target_link_libraries(cv_test ${OpenCV_LIBS} ${PCL_LIBRARIES})
