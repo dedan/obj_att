@@ -19,14 +19,21 @@ find_package(VTK)
 include(${VTK_USE_FILE})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-FIND_PACKAGE( OpenCV REQUIRED )
+find_package(OpenCV REQUIRED)
+
+include_directories(/usr/local/include/siftfast/)
 
 
 # make and link executable
 add_executable(obj_att main.cpp)
 target_link_libraries(obj_att ${PCL_LIBRARIES})
-MESSAGE(${PCL_LIBRARIES})
 
 
 add_executable(cv_test cv_test.cpp)
-target_link_libraries(cv_test ${OpenCV_LIBS} ${PCL_LIBRARIES})
+target_link_libraries(cv_test ${OpenCV_LIBS} ${PCL_LIBRARIES} /usr/local/lib/libsiftfast.so)
+
+add_executable(sift_test sift_test.cpp)
+target_link_libraries(sift_test ${OpenCV_LIBS} ${PCL_LIBRARIES} /usr/local/lib/libsiftfast.so)
+
+add_executable(timing_test test_timing.cpp)
+target_link_libraries(timing_test ${PCL_LIBRARIES})
