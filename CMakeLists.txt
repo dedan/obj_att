@@ -36,4 +36,4 @@ add_executable(sift_test sift_test.cpp)
 target_link_libraries(sift_test ${OpenCV_LIBS} ${PCL_LIBRARIES} /usr/local/lib/libsiftfast.so)
 
 add_executable(crash_test crash_test.cpp)
-target_link_libraries(crash_test ${PCL_LIBRARIES})
+target_link_libraries(crash_test ${OpenCV_LIBS} ${PCL_LIBRARIES})
