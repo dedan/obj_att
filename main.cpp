@@ -9,6 +9,14 @@ using namespace cv;
 using namespace std;
 
 
+// histogramm settings
+int n_bins = 256;
+float range[] = {1, 255};
+const float *ranges[] = { range };
+int channels[] = {0, 1};
+
+
+// extract image patch for sift feature computation
 Image create_sift_patch(Mat image, Point p1, Point p2)
 {
     assert(p2.y > p1.y);
@@ -28,6 +36,57 @@ Image create_sift_patch(Mat image, Point p1, Point p2)
 }
 
 
+// draw the histogram
+Mat draw_hist(const Mat& hist, int y_max, int x_max)
+{
+
+    Mat hist_img = Mat::zeros(x_max, y_max, CV_8UC1);
+
+
+    for(int i=0; i<hist.rows; i++)
+    {
+
+        float scaleX = 1;
+        float scaleY = 1;
+        float cur_value   = hist.at<float>(i);
+        float next_value  = hist.at<float>(i+1);
+
+        double min_hist = 0;
+        double max_hist = 0;
+        minMaxLoc(hist, 0, &max_hist);
+
+        Point pt1 = Point(i*scaleX, 64*scaleY);
+        Point pt2 = Point(i*scaleX+scaleX, 64*scaleY);
+        Point pt3 = Point(i*scaleX+scaleX, (64-next_value*64/max_hist)*scaleY);
+        Point pt4 = Point(i*scaleX, (64-cur_value*64/max_hist)*scaleY);
+
+        int numPts = 5;
+        Point pts[] = {pt1, pt2, pt3, pt4, pt1};
+
+        fillConvexPoly(hist_img, pts, numPts, Scalar(127));
+    }
+    return hist_img;
+}
+
+
+// print framerate etc to stdout
+void print_camera_info(VideoCapture capture)
+{
+    // Print some avalible Kinect settings.
+    cout << "\nDepth generator output mode:" << endl <<
+            "FRAME_WIDTH    " << capture.get( CV_CAP_PROP_FRAME_WIDTH ) << endl <<
+            "FRAME_HEIGHT   " << capture.get( CV_CAP_PROP_FRAME_HEIGHT ) << endl <<
+            "FRAME_MAX_DEPTH    " << capture.get( CV_CAP_PROP_OPENNI_FRAME_MAX_DEPTH ) << " mm" << endl <<
+            "FPS    " << capture.get( CV_CAP_PROP_FPS ) << endl;
+
+    cout << "\nImage generator output mode:" << endl <<
+            "FRAME_WIDTH    " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FRAME_WIDTH ) << endl <<
+            "FRAME_HEIGHT   " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FRAME_HEIGHT ) << endl <<
+            "FPS    " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FPS ) << endl;
+}
+
+
+
 int main()
 {
 
@@ -42,18 +101,19 @@ int main()
     }
 
     capture.set( CV_CAP_OPENNI_IMAGE_GENERATOR_OUTPUT_MODE, CV_CAP_OPENNI_VGA_30HZ ); // default
+    print_camera_info(capture);
 
-    // Print some avalible Kinect settings.
-    cout << "\nDepth generator output mode:" << endl <<
-            "FRAME_WIDTH    " << capture.get( CV_CAP_PROP_FRAME_WIDTH ) << endl <<
-            "FRAME_HEIGHT   " << capture.get( CV_CAP_PROP_FRAME_HEIGHT ) << endl <<
-            "FRAME_MAX_DEPTH    " << capture.get( CV_CAP_PROP_OPENNI_FRAME_MAX_DEPTH ) << " mm" << endl <<
-            "FPS    " << capture.get( CV_CAP_PROP_FPS ) << endl;
 
-    cout << "\nImage generator output mode:" << endl <<
-            "FRAME_WIDTH    " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FRAME_WIDTH ) << endl <<
-            "FRAME_HEIGHT   " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FRAME_HEIGHT ) << endl <<
-            "FPS    " << capture.get( CV_CAP_OPENNI_IMAGE_GENERATOR+CV_CAP_PROP_FPS ) << endl;
+    int obj_count = 10;
+    vector<Vec3b> colorTab;
+    for( int i = 0; i < obj_count; i++ )
+    {
+        int b = theRNG().uniform(0, 255);
+        int g = theRNG().uniform(0, 255);
+        int r = theRNG().uniform(0, 255);
+
+        colorTab.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
+    }
 
     for(;;)
     {
@@ -67,14 +127,63 @@ int main()
         }
         else
         {
+
+            //process the depth image
             if(capture.retrieve( depthMap, CV_CAP_OPENNI_DEPTH_MAP ) )
             {
                 const float scaleFactor = 0.05f;
                 Mat show;
                 depthMap.convertTo( show, CV_8UC1, scaleFactor );
+
+
+                // draw histogram in depth image
+
+                Mat hist;
+                calcHist(&show, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
+                Mat hist_img = draw_hist(hist, 256, 64);
+
+                Rect hist_rect(0,0,256,64);
+                Mat hist_roi(show, hist_rect);
+                hist_img.copyTo(hist_roi);
+                rectangle(show, hist_rect, Scalar(255));
+
+                Mat noise(show.size(), CV_16UC1);
+                randn(noise, Scalar::all(10), Scalar::all(1));
+                Mat bla = noise > Mat::ones(noise.size(), CV_16UC1) *12;
+                Mat markers = bla / 255.;
+
+
                 imshow( "depth map", show );
+
+
+
+
+                watershed(show, markers);
+
+                Mat wshed(markers.size(), CV_8UC3);
+
+                // paint the watershed image
+                for( int i = 0; i < markers.rows; i++ )
+                    for( int j = 0; j < markers.cols; j++ )
+                    {
+                        int idx = markers.at<int>(i,j);
+                        if( idx == -1 )
+                            wshed.at<Vec3b>(i,j) = Vec3b(255,255,255);
+                        else if( idx <= 0 || idx > obj_count )
+                            wshed.at<Vec3b>(i,j) = Vec3b(0,0,0);
+                        else
+                            wshed.at<Vec3b>(i,j) = colorTab[idx - 1];
+                    }
+
+                wshed = wshed*0.5 + show*0.5;
+                imshow( "watershed transform", wshed );
+
+
+
+
             }
 
+            // process the rgb image
             if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
             {
 
@@ -96,7 +205,7 @@ int main()
 
                 FreeKeypoints(keypts);
                 DestroyAllResources();
-                imshow( "rgb image", image);
+    //            imshow( "rgb image", image);
 
             }
 
@@ -108,7 +217,4 @@ int main()
     return 0;
     cvDestroyAllWindows();
 }
-
-
-// TODO depth map maske benutzen
 
