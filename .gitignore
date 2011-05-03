@@ -2,4 +2,6 @@ CMakeLists.txt.user
 cloude_to_image.cpp
 range_image_creation.cpp
 build/*
-
+images/*.txt
+images/*.jpg
+images.zip
