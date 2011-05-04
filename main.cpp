@@ -100,13 +100,13 @@ int main()
         return -1;
     }
 
-    capture.set( CV_CAP_OPENNI_IMAGE_GENERATOR_OUTPUT_MODE, CV_CAP_OPENNI_VGA_30HZ ); // default
+    capture.set( CV_CAP_OPENNI_IMAGE_GENERATOR_OUTPUT_MODE, CV_CAP_OPENNI_VGA_30HZ); // default
     print_camera_info(capture);
 
 
-    int obj_count = 10;
+    int n_proto = 20;
     vector<Vec3b> colorTab;
-    for( int i = 0; i < obj_count; i++ )
+    for( int i = 0; i < n_proto; i++ )
     {
         int b = theRNG().uniform(0, 255);
         int g = theRNG().uniform(0, 255);
@@ -114,6 +114,7 @@ int main()
 
         colorTab.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
     }
+
 
     for(;;)
     {
@@ -129,7 +130,7 @@ int main()
         {
 
             //process the depth image
-            if(capture.retrieve( depthMap, CV_CAP_OPENNI_DEPTH_MAP ) )
+            if(capture.retrieve( depthMap, CV_CAP_OPENNI_DEPTH_MAP) )
             {
                 const float scaleFactor = 0.05f;
                 Mat show;
@@ -146,68 +147,73 @@ int main()
                 Mat hist_roi(show, hist_rect);
                 hist_img.copyTo(hist_roi);
                 rectangle(show, hist_rect, Scalar(255));
-
-                Mat noise(show.size(), CV_16UC1);
-                randn(noise, Scalar::all(10), Scalar::all(1));
-                Mat bla = noise > Mat::ones(noise.size(), CV_16UC1) *12;
-                Mat markers = bla / 255.;
+                imshow("depth", show);
 
 
-                imshow( "depth map", show );
-
-
-
-
-                watershed(show, markers);
-
-                Mat wshed(markers.size(), CV_8UC3);
-
-                // paint the watershed image
-                for( int i = 0; i < markers.rows; i++ )
-                    for( int j = 0; j < markers.cols; j++ )
-                    {
-                        int idx = markers.at<int>(i,j);
-                        if( idx == -1 )
-                            wshed.at<Vec3b>(i,j) = Vec3b(255,255,255);
-                        else if( idx <= 0 || idx > obj_count )
-                            wshed.at<Vec3b>(i,j) = Vec3b(0,0,0);
-                        else
-                            wshed.at<Vec3b>(i,j) = colorTab[idx - 1];
-                    }
-
-                wshed = wshed*0.5 + show*0.5;
-                imshow( "watershed transform", wshed );
-
-
-
-
-            }
-
-            // process the rgb image
-            if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
-            {
-
-
-                Point p1 = Point(10, 10);
-                Point p2 = Point(100, 100);
-                Image img_sift = create_sift_patch(image, p1, p2);
-                Keypoint keypts = GetKeypoints(img_sift);
-                Keypoint key = keypts;
-                while(key)
+                Mat flat(show.rows*show.cols, 3, CV_32F);
+                for(int i = 0; i<show.cols; i++)
                 {
-                    rectangle(image,
-                                Point(p1.x + key->col-1 , p1.y + key->row-1),
-                                Point(p1.x + key->col+1 , p1.y + key->row+1),
-                                Scalar(255,0,0), 1);
-                    key = key->next;
-                }
-                rectangle(image, p1, p2, Scalar(80, 0, 0), 1);
+                    for(int j = 0; j<show.rows; j++)
+                    {
+           //             cout << i << " : " << j << "= " << i*show.cols+j << endl;
+                        flat.at<float>(i*show.rows+j, 0) = (float)i;
+                        flat.at<float>(i*show.rows+j, 1) = (float)j;
+                        flat.at<float>(i*show.rows+j, 2) = show.at<uchar>(i,j);
 
-                FreeKeypoints(keypts);
-                DestroyAllResources();
-    //            imshow( "rgb image", image);
+                    }
+                }
+                Mat labels;
+                Mat centers;
+                TermCriteria crit = TermCriteria();
+                kmeans(flat, n_proto, labels, crit, 1, KMEANS_RANDOM_CENTERS, centers);
+
+
+//                Mat cluster(show.size(), CV_8UC3);
+
+//                // paint the watershed image
+//                for( int i = 0; i < show.cols; i++ )
+//                {
+//                    for( int j = 0; j < show.rows; j++ )
+//                    {
+//                        int idx = labels.at<int>(i*show.rows+j);
+//                        cluster.at<Vec3b>(j,i) = colorTab[idx];
+//                    }
+//                }
+
+//                //cluster = cluster*0.5 + show*0.5;
+//                imshow( "depth", cluster );
+                imshow("depth", show);
+
+
+                //break;
 
             }
+
+//            // process the rgb image
+//            if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
+//            {
+
+
+//                Point p1 = Point(10, 10);
+//                Point p2 = Point(100, 100);
+//                Image img_sift = create_sift_patch(image, p1, p2);
+//                Keypoint keypts = GetKeypoints(img_sift);
+//                Keypoint key = keypts;
+//                while(key)
+//                {
+//                    rectangle(image,
+//                                Point(p1.x + key->col-1 , p1.y + key->row-1),
+//                                Point(p1.x + key->col+1 , p1.y + key->row+1),
+//                                Scalar(255,0,0), 1);
+//                    key = key->next;
+//                }
+//                rectangle(image, p1, p2, Scalar(80, 0, 0), 1);
+
+//                FreeKeypoints(keypts);
+//                DestroyAllResources();
+//                imshow( "rgb image", image);
+
+//            }
 
             if( waitKey( 30 ) >= 0 )
                 break;
