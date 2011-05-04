@@ -5,3 +5,5 @@ build/*
 images/*.txt
 images/*.jpg
 images.zip
+/images/super_simple.xcf
+*.m~
