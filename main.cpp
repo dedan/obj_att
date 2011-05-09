@@ -51,7 +51,6 @@ Mat draw_hist(const Mat& hist, int y_max, int x_max)
         float cur_value   = hist.at<float>(i);
         float next_value  = hist.at<float>(i+1);
 
-        double min_hist = 0;
         double max_hist = 0;
         minMaxLoc(hist, 0, &max_hist);
 
@@ -86,6 +85,24 @@ void print_camera_info(VideoCapture capture)
 }
 
 
+// get a random color table for cluster coloring
+vector<Vec3b> get_color_table(int n_entries)
+{
+    vector<Vec3b> color_tab;
+    for( int i = 0; i < n_bins; i++ )
+    {
+        int b = theRNG().uniform(0, 255);
+        int g = theRNG().uniform(0, 255);
+        int r = theRNG().uniform(0, 255);
+
+        color_tab.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
+    }
+    return color_tab;
+}
+
+
+
+
 
 int main()
 {
@@ -103,17 +120,6 @@ int main()
     capture.set( CV_CAP_OPENNI_IMAGE_GENERATOR_OUTPUT_MODE, CV_CAP_OPENNI_VGA_30HZ); // default
     print_camera_info(capture);
 
-
-    int n_proto = 20;
-    vector<Vec3b> colorTab;
-    for( int i = 0; i < n_proto; i++ )
-    {
-        int b = theRNG().uniform(0, 255);
-        int g = theRNG().uniform(0, 255);
-        int r = theRNG().uniform(0, 255);
-
-        colorTab.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
-    }
 
 
     for(;;)
@@ -137,10 +143,101 @@ int main()
                 depthMap.convertTo( show, CV_8UC1, scaleFactor );
 
 
-                // draw histogram in depth image
-
                 Mat hist;
                 calcHist(&show, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
+
+                // TODO smooth histogram (cvSmooth
+
+                Mat cluster = Mat::zeros(show.size(), CV_8UC1);
+
+                // histogram clustering
+                int start = 0;
+                int end   = 0;
+                int c     = 1;
+                cout << hist << endl << endl;
+                for(int i = 0; i < hist.rows; i++)
+                {
+                    float cur_value   = hist.at<float>(i);
+
+                    if(cur_value < hist.at<float>(start))
+                        start = i;
+
+                    if(cur_value > hist.at<float>(end))
+                        end = i;
+
+                    // end of valley
+                    if(cur_value < 0.4 * hist.at<float>(end))
+                    {
+                        Mat mask = show > hist.at<float>(start) & show < hist.at<float>(i);
+                        imshow("mask", mask);
+                        waitKey();
+
+                        Mat val = Mat::ones(cluster.size(), CV_8UC1) * c & mask;
+
+                        imshow("cluster", cluster);
+                        bitwise_or(cluster, val, cluster);
+                        imshow("cluster", cluster);
+                        waitKey(0);
+                        start = i;
+                        end = i;
+                        c++;
+                    }
+                }
+
+                break;
+                cluster = (cluster / c) * 255;
+                imshow("cluster", cluster);
+
+//                Mat hist_img = Mat::zeros(x_max, y_max, CV_8UC1);
+
+
+//                for(int i=0; i<hist.rows; i++)
+//                {
+
+//                    float scaleX = 1;
+//                    float scaleY = 1;
+//                    float cur_value   = hist.at<float>(i);
+//                    float next_value  = hist.at<float>(i+1);
+
+//                    double max_hist = 0;
+//                    minMaxLoc(hist, 0, &max_hist);
+
+//                    Point pt1 = Point(i*scaleX, 64*scaleY);
+//                    Point pt2 = Point(i*scaleX+scaleX, 64*scaleY);
+//                    Point pt3 = Point(i*scaleX+scaleX, (64-next_value*64/max_hist)*scaleY);
+//                    Point pt4 = Point(i*scaleX, (64-cur_value*64/max_hist)*scaleY);
+
+//                    int numPts = 5;
+//                    Point pts[] = {pt1, pt2, pt3, pt4, pt1};
+
+//                    fillConvexPoly(hist_img, pts, numPts, Scalar(127));
+//                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 Mat hist_img = draw_hist(hist, 256, 64);
 
                 Rect hist_rect(0,0,256,64);
@@ -150,22 +247,6 @@ int main()
                 imshow("depth", show);
 
 
-                Mat flat(show.rows*show.cols, 3, CV_32F);
-                for(int i = 0; i<show.cols; i++)
-                {
-                    for(int j = 0; j<show.rows; j++)
-                    {
-           //             cout << i << " : " << j << "= " << i*show.cols+j << endl;
-                        flat.at<float>(i*show.rows+j, 0) = (float)i;
-                        flat.at<float>(i*show.rows+j, 1) = (float)j;
-                        flat.at<float>(i*show.rows+j, 2) = show.at<uchar>(i,j);
-
-                    }
-                }
-                Mat labels;
-                Mat centers;
-                TermCriteria crit = TermCriteria();
-                kmeans(flat, n_proto, labels, crit, 1, KMEANS_RANDOM_CENTERS, centers);
 
 
 //                Mat cluster(show.size(), CV_8UC3);
