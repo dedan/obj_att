@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 
+SET(CMAKE_BUILD_TYPE Debug) 
+
 # project name
 project(object_attention)
 list(APPEND CMAKE_MODULE_PATH ${object_attention_SOURCE_DIR})
