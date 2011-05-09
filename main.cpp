@@ -86,18 +86,13 @@ void print_camera_info(VideoCapture capture)
 
 
 // get a random color table for cluster coloring
-vector<Vec3b> get_color_table(int n_entries)
+Vec3b get_rand_col()
 {
-    vector<Vec3b> color_tab;
-    for( int i = 0; i < n_bins; i++ )
-    {
-        int b = theRNG().uniform(0, 255);
-        int g = theRNG().uniform(0, 255);
-        int r = theRNG().uniform(0, 255);
+    int b = theRNG().uniform(0, 255);
+    int g = theRNG().uniform(0, 255);
+    int r = theRNG().uniform(0, 255);
 
-        color_tab.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
-    }
-    return color_tab;
+    return Vec3b((uchar)b, (uchar)g, (uchar)r);
 }
 
 
