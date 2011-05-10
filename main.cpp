@@ -23,19 +23,15 @@ int max_dist = 4000;
 
 
 // extract image patch for sift feature computation
-Image create_sift_patch(Mat image, Point p1, Point p2)
+Image create_sift_patch(Mat image, Rect r)
 {
-    assert(p2.y > p1.y);
-    assert(p2.x > p1.x);
-    int height = p2.y - p1.y;
-    int width = p2.x - p1.x;
-    Image patch = CreateImage(height, width);
-    for(int r = 0; r < height; ++r)
+    Image patch = CreateImage(r.height, r.width);
+    for(int i = 0; i < r.height; ++i)
     {
-        for(int c = 0; c < width; ++c)
+        for(int j = 0; j < r.width; ++j)
         {
 
-           patch->pixels[r*patch->stride+c] = image.at<uchar>(p1.y + r, p1.x + c) / 255.;
+           patch->pixels[i*patch->stride+j] = image.at<uchar>(r.y + i, r.x + j) / 255.;
         }
     }
     return patch;
@@ -90,6 +86,7 @@ int main(int argc, char **argv)
     clock_t tstart, tend;
     Mat data;
     Mat hist;
+    Mat image;
 
     vector<Scalar> color_tab = get_rand_colors(n_colors);
 
@@ -119,6 +116,9 @@ int main(int argc, char **argv)
         }
         else
         {
+
+            vector<RotatedRect> objects;
+
             //process the depth image
             if(capture.retrieve( data, CV_CAP_OPENNI_DEPTH_MAP) )
             {
@@ -167,12 +167,16 @@ int main(int argc, char **argv)
 
                         for(std::vector<int>::size_type j = 0; j != conts.size(); j++)
                         {
+                            // draw the rectangle
                             drawContours( contours, conts, j, color_tab[c], CV_FILLED, 8);
                             RotatedRect box = minAreaRect(Mat(conts[j]));
                             Point2f vtx[4];
                             box.points(vtx);
                             for( int k = 0; k < 4; k++ )
                                 line(contours, vtx[k], vtx[(k+1)%4], Scalar(0, 255, 0), 1, CV_AA);
+
+                            // and store them for sift stuff
+                            objects.push_back(box);
                         }
 
                         // start again
@@ -229,31 +233,34 @@ int main(int argc, char **argv)
 
             }
 
-//            // process the rgb image
-//            if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
-//            {
+            // process the rgb image
+            if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
+            {
 
+                // for all the detected objects
+                for(std::vector<int>::size_type i = 0; i != objects.size(); i++)
+                {
+                    Rect obj_frame = objects[i].boundingRect();
+//                    Image img_sift = create_sift_patch(image, obj_frame);
+//                    Keypoint keypts = GetKeypoints(img_sift);
+//                    Keypoint key = keypts;
+//                    while(key)
+//                    {
+//                        rectangle(image,
+//                                    Point(obj_frame.x + key->col-1 , obj_frame.y + key->row-1),
+//                                    Point(obj_frame.x + key->col+1 , obj_frame.y + key->row+1),
+//                                    Scalar(255,0,0), 1);
+//                        key = key->next;
+//                    }
+                    rectangle(image, obj_frame, Scalar(80, 0, 0), 1);
 
-//                Point p1 = Point(10, 10);
-//                Point p2 = Point(100, 100);
-//                Image img_sift = create_sift_patch(image, p1, p2);
-//                Keypoint keypts = GetKeypoints(img_sift);
-//                Keypoint key = keypts;
-//                while(key)
-//                {
-//                    rectangle(image,
-//                                Point(p1.x + key->col-1 , p1.y + key->row-1),
-//                                Point(p1.x + key->col+1 , p1.y + key->row+1),
-//                                Scalar(255,0,0), 1);
-//                    key = key->next;
-//                }
-//                rectangle(image, p1, p2, Scalar(80, 0, 0), 1);
+//                    FreeKeypoints(keypts);
+//                    DestroyAllResources();
 
-//                FreeKeypoints(keypts);
-//                DestroyAllResources();
-//                imshow( "rgb image", image);
+                }
+                imshow( "rgb image", image);
 
-//            }
+            }
 
             if( waitKey( 30 ) >= 0 )
                 break;
