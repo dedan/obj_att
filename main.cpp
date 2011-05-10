@@ -4,16 +4,22 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include <iostream>
 #include "siftfast.h"
+#include <time.h>
 
 using namespace cv;
 using namespace std;
 
-
-// histogramm settings
-int n_bins = 256;
-float range[] = {1, 255};
+// constants
+int n_bins = 600;
+float range[] = {1, 6000};
 const float *ranges[] = { range };
 int channels[] = {0, 1};
+int width = 640;
+int height = 480;
+int hist_height = 64;
+const float scale_factor = 0.05f;
+int n_colors = 100;
+int max_dist = 4000;
 
 
 // extract image patch for sift feature computation
@@ -36,38 +42,6 @@ Image create_sift_patch(Mat image, Point p1, Point p2)
 }
 
 
-// draw the histogram
-Mat draw_hist(const Mat& hist, int y_max, int x_max)
-{
-
-    Mat hist_img = Mat::zeros(x_max, y_max, CV_8UC1);
-
-
-    for(int i=0; i<hist.rows; i++)
-    {
-
-        float scaleX = 1;
-        float scaleY = 1;
-        float cur_value   = hist.at<float>(i);
-        float next_value  = hist.at<float>(i+1);
-
-        double max_hist = 0;
-        minMaxLoc(hist, 0, &max_hist);
-
-        Point pt1 = Point(i*scaleX, 64*scaleY);
-        Point pt2 = Point(i*scaleX+scaleX, 64*scaleY);
-        Point pt3 = Point(i*scaleX+scaleX, (64-next_value*64/max_hist)*scaleY);
-        Point pt4 = Point(i*scaleX, (64-cur_value*64/max_hist)*scaleY);
-
-        int numPts = 5;
-        Point pts[] = {pt1, pt2, pt3, pt4, pt1};
-
-        fillConvexPoly(hist_img, pts, numPts, Scalar(127));
-    }
-    return hist_img;
-}
-
-
 // print framerate etc to stdout
 void print_camera_info(VideoCapture capture)
 {
@@ -86,21 +60,40 @@ void print_camera_info(VideoCapture capture)
 
 
 // get a random color table for cluster coloring
-Vec3b get_rand_col()
+vector<Scalar> get_rand_colors(int n_bins)
 {
-    int b = theRNG().uniform(0, 255);
-    int g = theRNG().uniform(0, 255);
-    int r = theRNG().uniform(0, 255);
-
-    return Vec3b((uchar)b, (uchar)g, (uchar)r);
+    vector<Scalar> table;
+    for(int i = 0; i < n_bins; i++)
+    {
+        int b = theRNG().uniform(0, 255);
+        int g = theRNG().uniform(0, 255);
+        int r = theRNG().uniform(0, 255);
+        table.push_back(Scalar((uchar)b, (uchar)g, (uchar)r));
+    }
+    return table;
 }
 
 
 
-
-
-int main()
+int main(int argc, char **argv)
 {
+    int k_width = 5;
+    float perc  = 0.2;
+
+    if(argc > 1)
+    {
+        k_width = atoi(argv[1]);
+        perc    = atof(argv[2]);
+    }
+
+    //variables
+    clock_t tstart, tend;
+    Mat data;
+    Mat hist;
+
+    vector<Scalar> color_tab = get_rand_colors(n_colors);
+
+
 
     cout << "Kinect opening ..." << endl;
     VideoCapture capture( CV_CAP_OPENNI );
@@ -119,9 +112,6 @@ int main()
 
     for(;;)
     {
-        Mat depthMap;
-        Mat image;
-
         if( !capture.grab() )
         {
             cout << "Can not grab images." << endl;
@@ -129,139 +119,113 @@ int main()
         }
         else
         {
-
             //process the depth image
-            if(capture.retrieve( depthMap, CV_CAP_OPENNI_DEPTH_MAP) )
+            if(capture.retrieve( data, CV_CAP_OPENNI_DEPTH_MAP) )
             {
-                const float scaleFactor = 0.05f;
-                Mat show;
-                depthMap.convertTo( show, CV_8UC1, scaleFactor );
 
+                // measure execution time
+                tstart = clock();
 
-                Mat hist;
-                calcHist(&show, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
+                // compute and smoooth histogram
+                calcHist(&data, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
+                boxFilter(hist, hist, -1, Size(1, k_width));
 
-                // TODO smooth histogram (cvSmooth
-
-                Mat cluster = Mat::zeros(show.size(), CV_8UC1);
 
                 // histogram clustering
                 int start = 0;
                 int end   = 0;
                 int c     = 1;
-                cout << hist << endl << endl;
-                for(int i = 0; i < hist.rows; i++)
+                Mat cluster = Mat::zeros(height, width, CV_8UC1);
+                Mat contours = Mat::zeros(data.size(), CV_8UC3);
+                Mat hist_img = Mat::zeros(hist_height, width, CV_8UC3);
+
+
+                for(int i = 0; i < max_dist / 10; i++)
                 {
-                    float cur_value   = hist.at<float>(i);
+                    float cur_value     = hist.at<float>(i);
+                    float next_value    = hist.at<float>(i+1);
 
-                    if(cur_value < hist.at<float>(start))
-                        start = i;
-
+                    // remember value as long it rises
                     if(cur_value > hist.at<float>(end))
                         end = i;
 
                     // end of valley
-                    if(cur_value < 0.4 * hist.at<float>(end))
+                    if(cur_value < perc * hist.at<float>(end) &&
+                       1.1 * cur_value < next_value)
                     {
-                        Mat mask = show > hist.at<float>(start) & show < hist.at<float>(i);
-                        imshow("mask", mask);
-                        waitKey();
-
+                        // get all the pixels in the depth image belonging to a cluster
+                        Mat mask = data > start * 10 & data < i * 10;
                         Mat val = Mat::ones(cluster.size(), CV_8UC1) * c & mask;
-
-                        imshow("cluster", cluster);
                         bitwise_or(cluster, val, cluster);
-                        imshow("cluster", cluster);
-                        waitKey(0);
+
+                        vector<vector<Point> > conts;
+                        erode(mask, mask, getStructuringElement(MORPH_RECT, Size(10, 10)));
+
+
+
+                        findContours(mask, conts, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+                        for(std::vector<int>::size_type j = 0; j != conts.size(); j++)
+                        {
+                            drawContours( contours, conts, j, color_tab[c], CV_FILLED, 8);
+                            RotatedRect box = minAreaRect(Mat(conts[j]));
+                            Point2f vtx[4];
+                            box.points(vtx);
+                            for( int k = 0; k < 4; k++ )
+                                line(contours, vtx[k], vtx[(k+1)%4], Scalar(0, 255, 0), 1, CV_AA);
+                        }
+
+                        // start again
                         start = i;
                         end = i;
                         c++;
                     }
+
+                    int n_points    = 5;
+                    double max_hist = 0;
+                    minMaxLoc(hist, 0, &max_hist);
+
+                    Point pt1   = Point(i, hist_height);
+                    Point pt2   = Point(i, hist_height);
+                    Point pt3   = Point(i, (hist_height-next_value*hist_height/max_hist));
+                    Point pt4   = Point(i, (hist_height-cur_value*hist_height/max_hist));
+                    Point pts[] = {pt1, pt2, pt3, pt4, pt1};
+                    fillConvexPoly(hist_img, pts, n_points, color_tab[c]);
                 }
 
-                break;
-                cluster = (cluster / c) * 255;
-                imshow("cluster", cluster);
-
-//                Mat hist_img = Mat::zeros(x_max, y_max, CV_8UC1);
+                tend = clock();
+   //             cout << "execution time: " << (double)(tend-tstart)/CLOCKS_PER_SEC << endl;
 
 
-//                for(int i=0; i<hist.rows; i++)
-//                {
+                // ########### draw everything in a final image;
+                Mat out(height + hist_height, width, CV_8UC3);
 
-//                    float scaleX = 1;
-//                    float scaleY = 1;
-//                    float cur_value   = hist.at<float>(i);
-//                    float next_value  = hist.at<float>(i+1);
+                // the cluster image
+                Mat col_clust = Mat(cluster.size(), CV_8UC3);
+                for( int i = 0; i < cluster.rows; i++ )
+                {
+                    for( int j = 0; j < cluster.cols; j++ )
+                    {
+                        int idx = cluster.at<uchar>(i,j);
 
-//                    double max_hist = 0;
-//                    minMaxLoc(hist, 0, &max_hist);
+                        col_clust.at<Vec3b>(i,j)[0] = color_tab[idx-1][0];
+                        col_clust.at<Vec3b>(i,j)[1] = color_tab[idx-1][1];
+                        col_clust.at<Vec3b>(i,j)[2] = color_tab[idx-1][2];
+                    }
+                }
+                Mat outroi = out(Rect(0, hist_height, width, height));
+                col_clust.copyTo(outroi);
 
-//                    Point pt1 = Point(i*scaleX, 64*scaleY);
-//                    Point pt2 = Point(i*scaleX+scaleX, 64*scaleY);
-//                    Point pt3 = Point(i*scaleX+scaleX, (64-next_value*64/max_hist)*scaleY);
-//                    Point pt4 = Point(i*scaleX, (64-cur_value*64/max_hist)*scaleY);
+                // the histogram
+                Rect hist_rect(0,0,width, hist_height);
+                outroi = out(hist_rect);
+                hist_img.copyTo(outroi);
 
-//                    int numPts = 5;
-//                    Point pts[] = {pt1, pt2, pt3, pt4, pt1};
+                imshow("main", out);
 
-//                    fillConvexPoly(hist_img, pts, numPts, Scalar(127));
-//                }
-
-
-
-
-
-
-
-
+                imshow("conts", contours);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                Mat hist_img = draw_hist(hist, 256, 64);
-
-                Rect hist_rect(0,0,256,64);
-                Mat hist_roi(show, hist_rect);
-                hist_img.copyTo(hist_roi);
-                rectangle(show, hist_rect, Scalar(255));
-                imshow("depth", show);
-
-
-
-
-//                Mat cluster(show.size(), CV_8UC3);
-
-//                // paint the watershed image
-//                for( int i = 0; i < show.cols; i++ )
-//                {
-//                    for( int j = 0; j < show.rows; j++ )
-//                    {
-//                        int idx = labels.at<int>(i*show.rows+j);
-//                        cluster.at<Vec3b>(j,i) = colorTab[idx];
-//                    }
-//                }
-
-//                //cluster = cluster*0.5 + show*0.5;
-//                imshow( "depth", cluster );
-                imshow("depth", show);
-
-
-                //break;
 
             }
 
