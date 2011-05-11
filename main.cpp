@@ -82,12 +82,15 @@ int main(int argc, char **argv)
     Mat data;
     Mat hist;
     Mat image_raw;
+    char key;
+    int cont_count = 0;
+    int cont_f_count = 0;
 
     vector<Scalar> color_tab = get_rand_colors(n_colors);
     vector<Obj> objects;
 
 
-
+    // open kinect, print information and kinnect settings
     cout << "Kinect opening ..." << endl;
     VideoCapture capture( CV_CAP_OPENNI );
     cout << "done." << endl;
@@ -102,7 +105,7 @@ int main(int argc, char **argv)
     print_camera_info(capture);
 
 
-
+    // the main loop
     for(;;)
     {
         if( !capture.grab() )
@@ -112,18 +115,24 @@ int main(int argc, char **argv)
         }
         else
         {
+            // measure execution time
+            tstart = clock();
 
             //process the depth image
             if(capture.retrieve( data, CV_CAP_OPENNI_DEPTH_MAP) )
             {
 
-                // measure execution time
-                tstart = clock();
+                FileStorage fs;
+                if(key == 'c')
+                {
+                    stringstream fname;
+                    fname << "./out/cont" << cont_f_count << ".yml";
+                    fs = FileStorage(fname.str(), FileStorage::WRITE);
+                }
 
                 // compute and smoooth histogram
                 calcHist(&data, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
                 boxFilter(hist, hist, -1, Size(1, k_width));
-
 
                 // histogram clustering
                 int start = 0;
@@ -132,8 +141,6 @@ int main(int argc, char **argv)
                 Mat cluster = Mat::zeros(height, width, CV_8UC1);
                 Mat contours = Mat::zeros(data.size(), CV_8UC3);
                 Mat hist_img = Mat::zeros(hist_height, width, CV_8UC3);
-
-
                 for(int i = 0; i < max_dist / 10; i++)
                 {
                     float cur_value     = hist.at<float>(i);
@@ -152,12 +159,12 @@ int main(int argc, char **argv)
                         Mat val = Mat::ones(cluster.size(), CV_8UC1) * c & mask;
                         bitwise_or(cluster, val, cluster);
 
+                        // extract contours of objects in a cluster
                         vector<vector<Point> > conts;
                         erode(mask, mask, getStructuringElement(MORPH_RECT, Size(10, 10)));
-
-
-                        // find the contours (objects)
                         findContours(mask, conts, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+
                         for(std::vector<int>::size_type j = 0; j != conts.size(); j++)
                         {
                             // draw the rectangle
@@ -167,6 +174,15 @@ int main(int argc, char **argv)
                             box.points(vtx);
                             for( int k = 0; k < 4; k++ )
                                 line(contours, vtx[k], vtx[(k+1)%4], Scalar(0, 255, 0), 1, CV_AA);
+
+                            if(key == 'c')
+                            {
+                                stringstream bla;
+                                bla << "cont" << cont_count;
+                                fs << bla.str() << Mat(conts[j]);
+                                cont_count++;
+                            }
+
 
                             // and store them for tracking and sift
 
@@ -200,6 +216,13 @@ int main(int argc, char **argv)
                     Point pts[] = {pt1, pt2, pt3, pt4, pt1};
                     fillConvexPoly(hist_img, pts, n_points, color_tab[c]);
                 }
+                cont_count = 0;
+                if(key == 'c')
+                {
+                    fs.release();
+                    cont_f_count++;
+                }
+
 
                 tend = clock();
    //             cout << "execution time: " << (double)(tend-tstart)/CLOCKS_PER_SEC << endl;
@@ -268,9 +291,8 @@ int main(int argc, char **argv)
 
             }
 
-            cout << objects.size() << endl;
 
-            char key = waitKey(30);
+            key = waitKey(30);
             if(key == 27) break;
             if(key == 's')
             {
