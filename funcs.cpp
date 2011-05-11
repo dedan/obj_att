@@ -45,20 +45,7 @@ string create_timestamp()
 }
 
 
-// extract image patch for sift feature computation
-Image create_sift_patch(Mat image, Rect r)
-{
-    Image patch = CreateImage(r.height, r.width);
-    for(int i = 0; i < r.height; ++i)
-    {
-        for(int j = 0; j < r.width; ++j)
-        {
 
-           patch->pixels[i*patch->stride+j] = image.at<uchar>(r.y + i, r.x + j) / 255.;
-        }
-    }
-    return patch;
-}
 
 
 // print framerate etc to stdout
