@@ -29,7 +29,7 @@ Mat read_from_text(string fname)
 // get a random color for cluster coloring
 Scalar get_rand_col()
 {
-    int b = theRNG().uniform(0, 255);
+    int b = theRNG().uniform(0, 200);
     int g = theRNG().uniform(0, 255);
     int r = theRNG().uniform(0, 255);
 
@@ -46,23 +46,25 @@ int width = 640;
 int height = 480;
 int hist_height = 64;
 const float scale_factor = 0.05f;
+int max_dist = 4000;
 
 
 int main()
 {
+
+    clock_t tstart, tend;
 
     // read in the data
     Mat data = read_from_text("images/img_depth1.txt");
     data.convertTo(data, CV_16UC1);
 
     // measure execution time
-    clock_t tstart, tend;
     tstart = clock();
 
     // compute and smoooth histogram
     Mat hist;
     calcHist(&data, 1, channels, Mat(), hist, 1, &n_bins, ranges, true, false);
-    boxFilter(hist, hist, -1, Size(1,5));
+    boxFilter(hist, hist, -1, Size(1, 15));
 
 
     // histogram clustering
@@ -75,8 +77,9 @@ int main()
     vector<Scalar> color_tab;
     color_tab.push_back(get_rand_col());
     Mat cluster = Mat::zeros(data.size(), CV_8UC1);
+    Mat contours = Mat::zeros(data.size(), CV_8UC3);
 
-    for(int i = 0; i < hist.rows; i++)
+    for(int i = 0; i < max_dist / 10; i++)
     {
         float cur_value     = hist.at<float>(i);
         float next_value    = hist.at<float>(i+1);
@@ -86,12 +89,31 @@ int main()
             end = i;
 
         // end of valley
-        if(cur_value < 0.3 * hist.at<float>(end))
+        if(cur_value < 0.6 * hist.at<float>(end) &&
+           1.1 * cur_value < next_value)
         {
             // get all the pixels in the depth image belonging to a cluster
             Mat mask = data > start * 10 & data < i * 10;
             Mat val = Mat::ones(cluster.size(), CV_8UC1) * c & mask;
             bitwise_or(cluster, val, cluster);
+
+            vector<vector<Point> > conts;
+            findContours(mask, conts, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+            for(std::vector<int>::size_type j = 0; j != conts.size(); j++)
+            {
+                Scalar color( rand()&255, rand()&255, rand()&255 );
+                drawContours( contours, conts, j, color, CV_FILLED, 8);
+                cout << Mat(conts[j]) << endl;
+                RotatedRect box = minAreaRect(Mat(conts[j]));
+                Point2f vtx[4];
+                box.points(vtx);
+                for( int k = 0; k < 4; k++ )
+                    line(contours, vtx[k], vtx[(k+1)%4], Scalar(0, 255, 0), 1, CV_AA);
+            }
+
+
+
 
             // create a random color for the cluster and start again
             color_tab.push_back(get_rand_col());
@@ -119,20 +141,6 @@ int main()
     // ########### draw everything in a final image;
     Mat out(height + hist_height, width, CV_8UC3);
 
-    // the depth image
-    Mat show;
-    data.convertTo( show, CV_8UC1, scale_factor );
-    cvtColor(show, show, CV_GRAY2RGB);
-    Mat outroi = out(Rect(0, hist_height, width, height));
-    show.copyTo(outroi);
-
-    // the histogram
-    Rect hist_rect(0,0,width, hist_height);
-    outroi = out(hist_rect);
-    hist_img.copyTo(outroi);
-    rectangle(out, hist_rect, Scalar(255));
-    imshow("main", out);
-
     // the cluster image
     Mat col_clust = Mat(cluster.size(), CV_8UC3);
     for( int i = 0; i < cluster.rows; i++ )
@@ -146,7 +154,18 @@ int main()
             col_clust.at<Vec3b>(i,j)[2] = color_tab[idx-1][2];
         }
     }
-    imshow("cluster", col_clust);
+    Mat outroi = out(Rect(0, hist_height, width, height));
+    col_clust.copyTo(outroi);
+
+    // the histogram
+    Rect hist_rect(0,0,width, hist_height);
+    outroi = out(hist_rect);
+    hist_img.copyTo(outroi);
+//    rectangle(out, hist_rect, Scalar(255));
+    imshow("main", out);
+
+    imshow("conts", contours);
+
     waitKey(0);
 
     return 0;
