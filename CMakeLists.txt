@@ -15,6 +15,7 @@ SET(ENV{OpenCV_DIR} "/home/dedan/Downloads/opencv/build/")
 find_package(OpenCV REQUIRED)
 
 include_directories(/usr/local/include/siftfast/)
+include_directories(CMAKE_MODULE_PATH ${object_attention_SOURCE_DIR})
 
 
 # make and link executable
