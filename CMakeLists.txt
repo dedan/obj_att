@@ -26,8 +26,3 @@ target_link_libraries(obj_att ${OpenCV_LIBS} /usr/local/lib/libsiftfast.so)
 add_executable(test test.cpp)
 target_link_libraries(test ${OpenCV_LIBS})
 
-
-# make and link test executable
-add_executable(rec recorder.cpp)
-target_link_libraries(rec ${OpenCV_LIBS})
-

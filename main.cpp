@@ -64,9 +64,10 @@ int main(int argc, char **argv)
     clock_t tstart, tend;
     Mat data;
     Mat hist;
-    Mat image;
+    Mat image_raw;
 
     vector<Scalar> color_tab = get_rand_colors(n_colors);
+    vector<Obj> objects;
 
 
 
@@ -94,8 +95,6 @@ int main(int argc, char **argv)
         }
         else
         {
-
-            vector<RotatedRect> objects;
 
             //process the depth image
             if(capture.retrieve( data, CV_CAP_OPENNI_DEPTH_MAP) )
@@ -140,9 +139,8 @@ int main(int argc, char **argv)
                         erode(mask, mask, getStructuringElement(MORPH_RECT, Size(10, 10)));
 
 
-
+                        // find the contours (objects)
                         findContours(mask, conts, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
                         for(std::vector<int>::size_type j = 0; j != conts.size(); j++)
                         {
                             // draw the rectangle
@@ -153,8 +151,19 @@ int main(int argc, char **argv)
                             for( int k = 0; k < 4; k++ )
                                 line(contours, vtx[k], vtx[(k+1)%4], Scalar(0, 255, 0), 1, CV_AA);
 
-                            // and store them for sift stuff
-                            objects.push_back(box);
+                            // and store them for tracking and sift
+
+                            // forget about it if to small or not compact enough
+
+                            // check whether a similar object is already in the list
+                                // if yes, update the object
+                                // if no, add it to the list
+
+
+
+
+                            Obj tmp(box, conts[j]);
+                            objects.push_back(tmp);
                         }
 
                         // start again
@@ -212,13 +221,15 @@ int main(int argc, char **argv)
             }
 
             // process the rgb image
-            if(capture.retrieve( image, CV_CAP_OPENNI_GRAY_IMAGE ) )
+            Mat image;
+            if(capture.retrieve( image_raw, CV_CAP_OPENNI_GRAY_IMAGE ) )
             {
 
+                image = image_raw.clone();
                 // for all the detected objects
                 for(std::vector<int>::size_type i = 0; i != objects.size(); i++)
                 {
-                    Rect obj_frame = objects[i].boundingRect();
+                    Rect obj_frame = objects[i].box.boundingRect();
 //                    Image img_sift = create_sift_patch(image, obj_frame);
 //                    Keypoint keypts = GetKeypoints(img_sift);
 //                    Keypoint key = keypts;
@@ -240,8 +251,28 @@ int main(int argc, char **argv)
 
             }
 
-            if( waitKey( 30 ) >= 0 )
-                break;
+            cout << objects.size() << endl;
+
+            char key = waitKey(30);
+            if(key == 27) break;
+            if(key == 's')
+            {
+                // set jpg quality to 100%
+                std::vector<int> p;
+                p.push_back(CV_IMWRITE_JPEG_QUALITY);
+                p.push_back(100);
+
+                stringstream fname;
+                string ts = create_timestamp();
+                fname << "./images/img_depth" << ts << ".txt";
+                save_as_text(fname.str(), data);
+
+                fname.str("");
+                fname << "./images/img_rgb" << ts << ".jpg";
+                imwrite(fname.str(), image_raw, p);
+
+                cout << "saved to img" << ts << endl;
+            }
         }
     }
 
