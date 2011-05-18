@@ -4,6 +4,7 @@ __author__ = 'dedan'
 import cv
 import OpenNIPythonWrapper as onipy
 import numpy as np
+import pickle
 
 # for making random numbers
 import random
@@ -15,11 +16,21 @@ def random_color():
     icolor = random.randint (0, 0xFFFFFF)
     return cv.Scalar (icolor & 0xff, (icolor >> 8) & 0xff, (icolor >> 16) & 0xff)
 
+class Obj:
+    def __init__(self, cont, color):
+        self.cont = cont
+        self.color = color
+        self.inact_count = 0
+        self.id = random.randint(1, 2**31)
+
+
+
 # some constants
 OPENNI_INITIALIZATION_FILE = "/home/dedan/Downloads/onipy/OpenNIPythonWrapper/OpenNIConfigurations/BasicColorAndDepth.xml"
-KEY_ESC = 537919515
+KEY_ESC = 27
 n_bins = 600
 max_range = 6000
+min_range = 800
 hist_height = 64
 k_width = 5
 perc = 0.2
@@ -40,6 +51,8 @@ if return_code != onipy.XN_STATUS_OK:
 try:
 
     # initialization stuff
+    save_count = 0
+    current_key = -1
     image_generator = onipy.OpenNIImageGenerator()
     return_code = g_context.FindExistingNode(onipy.XN_NODE_TYPE_IMAGE, image_generator)
     current_image_frame = cv.CreateImageHeader(image_generator.Res(), cv.IPL_DEPTH_8U, 3)
@@ -49,6 +62,12 @@ try:
     width = depth_generator.XRes()
     height = depth_generator.YRes()
     current_depth_frame = cv.CreateMatHeader(height, width, cv.CV_16UC1)
+    
+    # create some matrices for drawing
+    hist_img = cv.CreateMat(hist_height, width, cv.CV_8UC3)
+    out = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
+    contours = cv.CreateMat(height, width, cv.CV_8UC3)
+
 
 
     while True:
@@ -61,13 +80,14 @@ try:
         image_data_raw = image_generator.GetBGR24ImageMapRaw()
         cv.SetData(current_image_frame, image_data_raw)
         
-        # and create other images for drawing
+        # initialize matrices
         depth = np.asarray(current_depth_frame)
-        hist_img = cv.CreateMat(hist_height, width, cv.CV_8UC3)
         cv.SetZero(hist_img)
+        cv.SetZero(out)
+        cv.SetZero(contours)
     
         # compute and smooth histogram
-        hist, _ = np.histogram(depth, n_bins, range=(1, max_range), normed=False)
+        hist, _ = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
         hist = np.convolve(hist, np.ones(k_width) / k_width, 'same')
         max_hist = np.max(hist)
 
@@ -75,8 +95,8 @@ try:
         start = 0
         end = 0
         c = 1
-        contours = cv.CreateMat(depth_generator.YRes(), depth_generator.XRes(), cv.CV_8UC3)
-        cv.SetZero(contours)
+        conts_list = []
+
         for i in range(max_dist / 10):
             cur_value = hist[i]
             next_value = hist[i+1]
@@ -98,20 +118,17 @@ try:
                 storage = cv.CreateMemStorage(0)
                 conts = cv.FindContours(mask, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE)
                 
-                # print the contours and a box around them
+                # collect all interesting contours in a list
                 while conts:
-                    cv.DrawContours(contours, conts, color_tab[c] , color_tab[c], 0, cv.CV_FILLED, 8)
-                    box = cv.MinAreaRect2(conts)
-                    b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
-                    for j in range(4):
-                        cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+                    if len(conts) > 30 and cv.ContourArea(conts) > 250:
+                        conts_list.append(Obj(list(conts), color_tab[c]))
                     conts = conts.h_next()
                 
-                # prepare for search for next hill   
+                # prepare for search for next hill
                 start = i
                 end = i
                 c = c + 1
-
+                
             # draw current value in histogram
             pts = [(i, hist_height),
                    (i, hist_height),
@@ -120,14 +137,26 @@ try:
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
 
 
+                
+        # pickle the contours
+        if current_key == ord('c'):
+            with open('/home/dedan/obj_att/out/conts_%d.pickle' % save_count, 'w') as f:
+                pickle.dump(conts_list, f)
+                save_count = save_count +1
 
+        # print the contours and a box around them
+        for obj in conts_list:
+            cv.FillPoly(contours, [obj.cont], obj.color)
+            box = cv.MinAreaRect2(obj.cont)
+            b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
+            for j in range(4):
+                cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+                
 
 
 
 
         # output images
-        out = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
-        cv.SetZero(out)
         outroi = (0, hist_height, width, height)
         a = cv.GetSubRect(out, outroi)
         cv.Copy(contours, a)
@@ -135,15 +164,14 @@ try:
         a = cv.GetSubRect(out, histroi)
         cv.Copy(hist_img, a)
 
-
         # show the images
         cv.ShowImage( "Image Stream", current_image_frame )
         cv.ShowImage( "Depth Stream", current_depth_frame)
         cv.ShowImage("conts", out)
 
         # wait for user input (keys)
-        currentKey = cv.WaitKey( 5 )
-        if currentKey == KEY_ESC:
+        current_key = cv.WaitKey( 5 ) % 0x100
+        if current_key == KEY_ESC:
             break
 
 finally:
