@@ -12,3 +12,5 @@ out/*
 .pydevproject
 *.jpg
 todo.txt
+*.png
+*.pyc
