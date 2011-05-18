@@ -5,25 +5,14 @@ import cv
 import OpenNIPythonWrapper as onipy
 import numpy as np
 import pickle
+from guppy import hpy
+
 
 # for making random numbers
-import random
+from my_classes import Obj
+from my_classes import random_color
 
-def random_color():
-    """
-    Return a random color
-    """
-    icolor = random.randint (0, 0xFFFFFF)
-    return cv.Scalar (icolor & 0xff, (icolor >> 8) & 0xff, (icolor >> 16) & 0xff)
-
-class Obj:
-    def __init__(self, cont, color):
-        self.cont = cont
-        self.color = color
-        self.inact_count = 0
-        self.id = random.randint(1, 2**31)
-
-
+h = hpy()
 
 # some constants
 OPENNI_INITIALIZATION_FILE = "/home/dedan/Downloads/onipy/OpenNIPythonWrapper/OpenNIConfigurations/BasicColorAndDepth.xml"
@@ -52,6 +41,7 @@ try:
 
     # initialization stuff
     save_count = 0
+    objects = []
     current_key = -1
     image_generator = onipy.OpenNIImageGenerator()
     return_code = g_context.FindExistingNode(onipy.XN_NODE_TYPE_IMAGE, image_generator)
@@ -120,8 +110,8 @@ try:
                 
                 # collect all interesting contours in a list
                 while conts:
-                    if len(conts) > 30 and cv.ContourArea(conts) > 250:
-                        conts_list.append(Obj(list(conts), color_tab[c]))
+                    if len(conts) > 50 and cv.ContourArea(conts) > 500:
+                        conts_list.append(list(conts))
                     conts = conts.h_next()
                 
                 # prepare for search for next hill
@@ -143,14 +133,64 @@ try:
             with open('/home/dedan/obj_att/out/conts_%d.pickle' % save_count, 'w') as f:
                 pickle.dump(conts_list, f)
                 save_count = save_count +1
+        
+        
+        # iterate over tracked objects
+        obj_draw = np.zeros((height, width))
+        cont_draw = np.zeros((height, width))
+
+        for obj in objects:
+            found = False
+            
+            # when not seen n times, remove object
+            if obj.count < -3:
+                objects.remove(obj)
+                continue
+            
+            # draw the contour in an image for comparison
+            obj_draw[:] = 0
+            cv.FillPoly(obj_draw, [obj.cont], 1)
+            area = np.sum(obj_draw)
+            
+            # check for each object whether we see the contour again in this frame
+            for cont in conts_list:
+                cont_draw[:] = 0
+                cv.FillPoly(cont_draw, [cont], 1)
+                
+                # we found it
+                if np.sum(obj_draw * cont_draw) > 0.5 * area:
+                    obj.cont = cont            # update the contour to track movements
+                    obj.count = obj.count + 1  # this helps new objects to recover from negative init
+                    found = True
+                    conts_list.remove(cont)     
+                    break
+            if not found:
+                if obj.count > 0:
+                    obj.count = 0               # once not seen -> immediately on delete list
+                else:
+                    obj.count = obj.count -1    # few times not seen -> it becomes only worse
+        
+        # new objects get a chance in the object list
+        for cont in conts_list: 
+            objects.append(Obj(cont))
 
         # print the contours and a box around them
-        for obj in conts_list:
+        print len(objects)
+        for obj in objects:
+            if obj.count < 0:
+                continue
             cv.FillPoly(contours, [obj.cont], obj.color)
             box = cv.MinAreaRect2(obj.cont)
             b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
             for j in range(4):
                 cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+        
+        
+
+        
+        # TODO: ueber frames mitteln (entweder nur im histogramm, vielleicht aber auch ueber ganze frames (mit discount factor)
+        
+                
                 
 
 
@@ -172,6 +212,7 @@ try:
         # wait for user input (keys)
         current_key = cv.WaitKey( 5 ) % 0x100
         if current_key == KEY_ESC:
+            print h.heap()
             break
 
 finally:
