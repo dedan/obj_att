@@ -8,3 +8,6 @@ images.zip
 /images/super_simple.xcf
 *~
 out/*
+.project
+.pydevproject
+*.jpg
