@@ -202,10 +202,12 @@ try:
             if obj.count < 0:
                 continue
             cv.FillPoly(contours, [obj.cont], obj.color)
-            box = cv.MinAreaRect2(obj.cont)
-            b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
+            if obj.frames != None:
+                col = cv.Scalar(0,0,255)
+            else:
+                col = cv.Scalar(0,255,0)
             for j in range(4):
-                cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+                cv.Line(contours, obj.box_points[j], obj.box_points[(j+1)%4], col)
           
                 
         
