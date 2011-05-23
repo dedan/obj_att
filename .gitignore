@@ -14,3 +14,4 @@ out/*
 todo.txt
 *.png
 *.pyc
+*.pstats
