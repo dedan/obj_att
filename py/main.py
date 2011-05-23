@@ -1,6 +1,3 @@
-import my_classes
-__author__ = 'dedan'
-
 
 import cv
 import OpenNIPythonWrapper as onipy
@@ -8,8 +5,7 @@ import numpy as np
 import pickle
 import time
 
-
-# for making random numbers
+import siftfastpy
 from my_classes import Obj
 from my_classes import random_color
 
@@ -61,6 +57,7 @@ try:
     min_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
     max_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
     and_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
+    gray = cv.CreateMat(height, width, cv.CV_8UC1)
 
     obj_draw = np.zeros((height, width))
     cont_draw = np.zeros((height, width))
@@ -95,8 +92,7 @@ try:
         
         timing['t_init'] += time.time() - t0
     
-        # compute and smooth histogram
-        # TODO: check whether cv histo would be faster
+        # compute and smooth histogram      
         hist, _ = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
         hist = np.convolve(hist, np.ones(k_width) / k_width, 'same')
         max_hist = np.max(hist)
@@ -161,8 +157,22 @@ try:
                 save_count = save_count +1
         
         # iterate over tracked objects
+        sift = False
         for obj in objects:
             found = False
+            
+            # if sift not done in this frame, object not yet labelled and already seen a few times
+            if(obj.frames == None and obj.count > 20 and sift == False):
+                rect = cv.BoundingRect(obj.cont)
+                siftimage = siftfastpy.Image(rect[2], rect[3])
+                cv.CvtColor(current_image_frame, gray, cv.CV_BGR2GRAY)
+                gnp = np.asarray(cv.GetSubRect(gray, rect))
+                siftimage.SetData(gnp)
+                frames,desc = siftfastpy.GetKeypoints(siftimage)
+                obj.frames = frames                
+                
+                sift = True     # enough work done for this frame
+                
             
             # when not seen n times, remove object
             if obj.count < -3:
@@ -197,7 +207,6 @@ try:
             objects.append(Obj(cont))
 
         # print the contours and a box around them
-#        print len(objects), len(conts_list)
         for obj in objects:
             if obj.count < 0:
                 continue
