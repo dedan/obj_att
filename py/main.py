@@ -6,17 +6,13 @@ import cv
 import OpenNIPythonWrapper as onipy
 import numpy as np
 import pickle
-from guppy import hpy
 import time
-import objgraph
-import inspect, random
 
 
 # for making random numbers
 from my_classes import Obj
 from my_classes import random_color
 
-h = hpy()
 
 # some constants
 OPENNI_INITIALIZATION_FILE = "/home/dedan/Downloads/onipy/OpenNIPythonWrapper/OpenNIConfigurations/BasicColorAndDepth.xml"
@@ -69,7 +65,7 @@ try:
     obj_draw = np.zeros((height, width))
     cont_draw = np.zeros((height, width))
 
-    time_sum = 0
+    timing = {'t_init':0, 't_histo':0, 't_track':0, 't_pre':0}
     loop_c = 0
     
     font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8) #Creates a font
@@ -96,11 +92,16 @@ try:
         cv.SetZero(hist_img)
         cv.SetZero(out)
         cv.SetZero(contours)
+        
+        timing['t_init'] += time.time() - t0
     
         # compute and smooth histogram
+        # TODO: check whether cv histo would be faster
         hist, _ = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
         hist = np.convolve(hist, np.ones(k_width) / k_width, 'same')
         max_hist = np.max(hist)
+        
+        timing['t_histo'] += time.time() - t0
 
         # histogram clustering
         start = 0
@@ -118,42 +119,38 @@ try:
 
             # arrived in a valley
             if ((cur_value < perc * hist[end]) & (1.1 * cur_value < next_value)):
-                
+
+                # cut out a certain depth layer                
                 cv.Convert(current_depth_frame, for_thresh)
-
-
                 cv.Threshold(for_thresh, min_thresh, start*10, 255, cv.CV_THRESH_BINARY)
                 cv.Threshold(for_thresh, max_thresh, i*10, 255, cv.CV_THRESH_BINARY_INV)
                 cv.And(min_thresh, max_thresh, and_thresh)
                 
-
-                # cut out a certain depth layer
-#                mask = (depth > start * 10) & (depth < i * 10)               
-#                mask = mask.astype(np.uint8) * 255
-#                cv.Convert(depth, bla)
-#                mask = cv.fromarray(mask)
                 # erode the layer and find contours
                 cv.Erode(and_thresh, and_thresh, elem)
-#                conts = cv.FindContours(mask, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE)
+                conts = cv.FindContours(and_thresh, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE)
                 
                 # collect all interesting contours in a list
-#                while conts:
-#                    if len(conts) > 50 and cv.ContourArea(conts) > 500:
-#                        conts_list.append(list(conts))
-#                    conts = conts.h_next()
-#                del conts
+                while conts:
+                    if len(conts) > 50 and cv.ContourArea(conts) > 500:
+                        conts_list.append(list(conts))
+                    conts = conts.h_next()
                 
                 # prepare for search for next hill
                 start = i
                 end = i
                 c = c + 1
                 
+               
             # draw current value in histogram
-#            pts = [(i, hist_height),
-#                   (i, hist_height),
-#                   (i, int(hist_height-next_value*hist_height/max_hist)),
-#                   (i, int(hist_height-cur_value*hist_height/max_hist))]
-#            cv.FillConvexPoly(hist_img, pts, color_tab[c])
+            pts = [(i, hist_height),
+                   (i, hist_height),
+                   (i, int(hist_height-next_value*hist_height/max_hist)),
+                   (i, int(hist_height-cur_value*hist_height/max_hist))]
+            cv.FillConvexPoly(hist_img, pts, color_tab[c])
+            
+        timing['t_pre'] += time.time() - t0
+
 
 
                 
@@ -163,81 +160,61 @@ try:
                 pickle.dump(conts_list, f)
                 save_count = save_count +1
         
-#        print len(conts_list)
         # iterate over tracked objects
-#        for obj in objects:
-#            found = False
-#            
-#            # when not seen n times, remove object
-#            if obj.count < -3:
-#                objects.remove(obj)
-#                continue
-#            
-#            # draw the contour in an image for comparison
-#            obj_draw[:] = 0
-#            cv.FillPoly(obj_draw, [obj.cont], 1)
-#            area = np.dot(np.ravel(obj_draw), np.ravel(obj_draw))
-#            
-#            # check for each object whether we see the contour again in this frame
-#            for cont in conts_list:
-#                cont_draw[:] = 0
-#                cv.FillPoly(cont_draw, [cont], 1)
-#                
-#                # we found it
-#                if np.dot(np.ravel(obj_draw), np.ravel(cont_draw)) > 0.5 * area:
-#                    obj.cont = cont            # update the contour to track movements
-#                    obj.count = obj.count + 1  # this helps new objects to recover from negative init
-#                    found = True
-#                    conts_list.remove(cont)     
-#                    break
-#            if not found:
-#                if obj.count > 0:
-#                    obj.count = 0               # once not seen -> immediately on delete list
-#                else:
-#                    obj.count = obj.count -1    # few times not seen -> it becomes only worse
-#        
-#        # new objects get a chance in the object list
-#        for cont in conts_list: 
-#            objects.append(Obj(cont))
-#
-#        # print the contours and a box around them
-##        print len(objects), len(conts_list)
-#        for obj in objects:
-#            if obj.count < 0:
-#                continue
-#            cv.FillPoly(contours, [obj.cont], obj.color)
-#            box = cv.MinAreaRect2(obj.cont)
-#            b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
-#            for j in range(4):
-#                cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
-
-#        for cont in conts_list:
-#            cv.FillPoly(contours, [cont], my_classes.random_color())
-#            box = cv.MinAreaRect2(cont)
-#            b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
-#            for j in range(4):
-#                cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+        for obj in objects:
+            found = False
             
+            # when not seen n times, remove object
+            if obj.count < -3:
+                objects.remove(obj)
+                continue
+            
+            # draw the contour in an image for comparison
+            obj_draw[:] = 0
+            cv.FillPoly(obj_draw, [obj.cont], 1)
+            area = np.dot(np.ravel(obj_draw), np.ravel(obj_draw))
+            
+            # check for each object whether we see the contour again in this frame
+            for cont in conts_list:
+                cont_draw[:] = 0
+                cv.FillPoly(cont_draw, [cont], 1)
                 
-        time_sum += time.time() - t0
-        loop_c += 1
+                # we found it
+                if np.dot(np.ravel(obj_draw), np.ravel(cont_draw)) > 0.5 * area:
+                    obj.cont = cont            # update the contour to track movements
+                    obj.count = obj.count + 1  # this helps new objects to recover from negative init
+                    found = True
+                    conts_list.remove(cont)     
+                    break
+            if not found:
+                if obj.count > 0:
+                    obj.count = 0               # once not seen -> immediately on delete list
+                else:
+                    obj.count = obj.count -1    # few times not seen -> it becomes only worse
         
-#        objgraph.show_growth()
-        if (loop_c % 30) == 0: 
-            objgraph.show_chain(objgraph.find_backref_chain(
-                                                        random.choice(objgraph.by_type('tuple')),
-                                                        inspect.ismodule),
-                                                        filename='chain%d.png' % loop_c)
+        # new objects get a chance in the object list
+        for cont in conts_list: 
+            objects.append(Obj(cont))
 
+        # print the contours and a box around them
+#        print len(objects), len(conts_list)
+        for obj in objects:
+            if obj.count < 0:
+                continue
+            cv.FillPoly(contours, [obj.cont], obj.color)
+            box = cv.MinAreaRect2(obj.cont)
+            b_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
+            for j in range(4):
+                cv.Line(contours, b_points[j], b_points[(j+1)%4], cv.Scalar(0,255,0))
+          
+                
         
-        
-        
-
         
         # TODO: ueber frames mitteln (entweder nur im histogramm, vielleicht aber auch ueber ganze frames (mit discount factor)
         
                 
                 
+        timing['t_track'] += time.time() - t0
 
 
 
@@ -249,8 +226,16 @@ try:
         histroi = (0, 0, width, hist_height)
         a = cv.GetSubRect(out, histroi)
         cv.Copy(hist_img, a)
+        loop_c +=1
         
-        cv.PutText(out,"mean: %f" % (time_sum / loop_c), (0,height+hist_height-10),font, cv.Scalar(255,255,255)) #Draw the text
+        i = 0
+        for key, val in timing.iteritems():
+            cv.PutText(out, 
+                       "%s: %f" % (key, val / loop_c), 
+                       (0, height+hist_height-(len(timing)*20)+(i*15)),
+                       font, 
+                       cv.Scalar(255,255,255))
+            i += 1
 
 
         # show the images
@@ -261,7 +246,8 @@ try:
         # wait for user input (keys)
         current_key = cv.WaitKey( 5 ) % 0x100
         if current_key == KEY_ESC:
-            print h.heap()
+            for key, val in timing.iteritems():
+                print "%s: %f" % (key, val / loop_c)
             break
 
 finally:
