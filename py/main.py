@@ -4,10 +4,11 @@ import OpenNIPythonWrapper as onipy
 import numpy as np
 import pickle
 import time
-
 import siftfastpy
-from my_classes import Obj
-from my_classes import random_color
+
+from protoobj import Obj
+from protoobj import random_color
+from protoobj import SiftThread
 
 
 # some constants
