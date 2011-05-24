@@ -216,31 +216,42 @@ try:
         timing['t_track'] += time.time() - t0
 
 
-        # draw the contours and a box around them
-        # TODO: write in the image how many keypoints found
+        # draw the contours, a box around them and how many keypoints were found
         for obj in objects:
             if obj.count < 0:
                 continue
             cv.FillPoly(contours, [obj.cont], obj.color)
             if obj.frames != None:
                 col = cv.Scalar(0,255,0)
+                
+                # label with number of keypoints
+                cv.PutText(contours, 
+                           "k: %d" % obj.frames.shape[0], 
+                           obj.box_points[0], 
+                           font, cv.Scalar(255,255,255))
+                
+                # plot the keypoints
+                for i in range(obj.frames.shape[0]):
+                    cv.Rectangle(contours, 
+                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1), 
+                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1), 
+                                 cv.Scalar(200,200,200))
             else:
                 col = cv.Scalar(0,0,255)
             for j in range(4):
                 cv.Line(contours, obj.box_points[j], obj.box_points[(j+1)%4], col)
 
         # output images
-        # TODO: all images in one
         outroi = (0, hist_height, width, height)
         a = cv.GetSubRect(out, outroi)
-        cv.Copy(contours, a)
+        cv.AddWeighted(contours, 0.5, current_image_frame, 0.5, 0, a)
         histroi = (0, 0, width, hist_height)
         a = cv.GetSubRect(out, histroi)
         cv.Copy(hist_img, a)
         loop_c +=1
         timing['t_draw'] += time.time() - t0
         
-        
+        # print execution time statistics
         i = 0
         for key, val in timing.iteritems():
             cv.PutText(out, 
@@ -250,10 +261,9 @@ try:
                        cv.Scalar(255,255,255))
             i += 1
 
-
         # show the images
         cv.ShowImage( "Image Stream", current_image_frame )
-        cv.ShowImage( "Depth Stream", current_depth_frame)
+        cv.ShowImage( "Depth Stream", contours)
         cv.ShowImage("conts", out)
         
         # wait for user input (keys)
