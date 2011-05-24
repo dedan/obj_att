@@ -6,6 +6,7 @@ import pickle
 import time
 import siftfastpy
 import Queue
+import pylab as plt
 
 from protoobj import Obj
 from protoobj import random_color
@@ -45,6 +46,7 @@ try:
     # initialization stuff
     save_count = 0
     objects = []
+    stats = []
     current_key = -1
     timing = {'t_draw':0, 't_histo':0, 't_track':0, 't_pre':0}
     loop_c = 0
@@ -80,7 +82,7 @@ try:
     sift_pool = Queue.Queue(0)
     threads = []
     for i in range(n_threads):
-        t = SiftThread(width, height, sift_pool)
+        t = SiftThread(width, height, sift_pool, stats)
         t.setDaemon(True)
         t.start()
         threads.append(t)
@@ -192,6 +194,7 @@ try:
                 cv.FillPoly(cont_draw, [cont], 1)
                 
                 # we found it
+                # TODO: maybe I can make this part parallel (but then I would have to compute all and cannot stop when found, hmm)
                 if np.dot(np.ravel(obj_draw), np.ravel(cont_draw)) > 0.5 * area:
                     obj.cont = cont            # update the contour to track movements
                     obj.count = obj.count + 1  # this helps new objects to recover from negative init
@@ -262,3 +265,8 @@ finally:
     for key, val in timing.iteritems():
         print "%s: %f" % (key, val / loop_c)
     g_context.Shutdown()
+    
+    # finally plot how sift execution time depends on patch size
+    plt.figure()
+    plt.scatter([bla[0] for bla in stats], [bla[1] for bla in stats])
+    plt.show()
