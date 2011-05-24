@@ -160,9 +160,11 @@ try:
 
         # pickle the contours and save images
         if current_key == ord('s'):
-            # TODO: tiefenbild wird nicht korrekt angezeigt
+            scaled = cv.CreateMat(height, width, cv.CV_8UC1)
+            cv.ConvertScale(current_depth_frame, scaled, 0.05)
             cv.SaveImage('../out/image_%d.jpg' % save_count, current_image_frame)
-            cv.SaveImage('../out/depth_%d.jpg' % save_count, current_depth_frame)
+            cv.SaveImage('../out/depth_%d.jpg' % save_count, scaled)
+
             with open('../out/objects_%d.pickle' % save_count, 'w') as f:
                 pickle.dump(objects, f)
             save_count = save_count +1
