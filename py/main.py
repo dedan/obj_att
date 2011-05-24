@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import time
 import siftfastpy
+import Queue
 
 from protoobj import Obj
 from protoobj import random_color
@@ -26,6 +27,7 @@ cont_length = 50
 cont_area = 500
 n_sift = 20
 n_forget = -3
+n_threads = 5
 
 # create a list of random colors
 color_tab = [random_color() for i in range(n_colors)]
@@ -73,6 +75,15 @@ try:
     hist_img = cv.CreateMat(hist_height, width, cv.CV_8UC3)
     out = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
     contours = cv.CreateMat(height, width, cv.CV_8UC3)
+    
+    # start the sifting threadpool
+    sift_pool = Queue.Queue(0)
+    threads = []
+    for i in range(n_threads):
+        t = SiftThread(width, height, sift_pool)
+        t.setDaemon(True)
+        t.start()
+        threads.append(t)
 
     while True:
 
@@ -147,10 +158,11 @@ try:
 
         # pickle the contours and save images
         if current_key == ord('s'):
+            # TODO: tiefenbild wird nicht korrekt angezeigt
             cv.SaveImage('../out/image_%d.jpg' % save_count, current_image_frame)
-            cv.SaveImage('../out/depth_%d.jpg' % save_count, current_depth_frame)            
+            cv.SaveImage('../out/depth_%d.jpg' % save_count, current_depth_frame)
             with open('../out/objects_%d.pickle' % save_count, 'w') as f:
-                pickle.dump(objects, f)               
+                pickle.dump(objects, f)
             save_count = save_count +1
         
         
@@ -161,9 +173,8 @@ try:
             
             # if sift not done in this frame, object not yet labelled and already seen a few times
             if(obj.frames == None and obj.count > n_sift and sift == False):
-                t = SiftThread(current_image_frame, obj)
-                t.start()
-                sift = True     # enough work done for this frame
+                sift_pool.put((obj, current_image_frame))
+                sift = True     # enough work added for this frame
                 
             # when not seen n times, remove object
             if obj.count < n_forget:
@@ -201,6 +212,7 @@ try:
 
 
         # draw the contours and a box around them
+        # TODO: write in the image how many keypoints found
         for obj in objects:
             if obj.count < 0:
                 continue
@@ -213,6 +225,7 @@ try:
                 cv.Line(contours, obj.box_points[j], obj.box_points[(j+1)%4], col)
 
         # output images
+        # TODO: all images in one
         outroi = (0, hist_height, width, height)
         a = cv.GetSubRect(out, outroi)
         cv.Copy(contours, a)
@@ -241,6 +254,8 @@ try:
         # wait for user input (keys)
         current_key = cv.WaitKey( 5 ) % 0x100
         if current_key == KEY_ESC:
+            for thread in threads:
+                thread.stop()
             break
 
 finally:

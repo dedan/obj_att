@@ -10,6 +10,7 @@ import siftfastpy
 import numpy as np
 import threading
 import time
+import Queue
 
 def random_color():
     """
@@ -42,30 +43,40 @@ class Obj(object):
         
 class SiftThread(threading.Thread):
     
-    def __init__(self, image, obj):
-        self.image = image
-        self.obj = obj
+    def __init__(self, width, height, q):
+        self.q = q
+        self.gray = cv.CreateMat(height, width, cv.CV_8UC1)
+        self._stop = threading.Event()
         threading.Thread.__init__(self)
+        
+    def stop(self):
+        self._stop.set()
     
     def run(self):
-        starttime = time.time()
         
-        # TODO: die nur ein mal erzeugen bei init
-        gray = cv.CreateMat(480, 640, cv.CV_8UC1)
         
-        # TODO: vielleicht doch die minarearect benutzen, ausschneiden und drehen
-        rect = cv.BoundingRect(self.obj.cont)
-        siftimage = siftfastpy.Image(rect[2], rect[3])
-        cv.CvtColor(self.image, gray, cv.CV_BGR2GRAY)
-        gnp = np.asarray(cv.GetSubRect(gray, rect))
-        siftimage.SetData(gnp)
+        while not self._stop.isSet():
+            task  = self.q.get()
+            
+            if task != None:
+                obj, image = task
+                
+            
+                starttime = time.time()
         
-        print 'initialization in: %fs' % (time.time()-starttime)
         
-        frames,desc = siftfastpy.GetKeypoints(siftimage)
-        
-        # TODO: descriptoren wieder in frame coordinaten rechnen
-        self.obj.frames = frames
-        self.obj.desc = desc
-        print '%d  keypoints found in %fs'%(frames.shape[0],time.time()-starttime)
-    
+                # TODO: vielleicht doch die minarearect benutzen, ausschneiden und drehen
+                rect = cv.BoundingRect(obj.cont)
+                siftimage = siftfastpy.Image(rect[2], rect[3])
+                cv.CvtColor(image, self.gray, cv.CV_BGR2GRAY)
+                gnp = np.asarray(cv.GetSubRect(self.gray, rect))
+                siftimage.SetData(gnp)
+                
+                print 'initialization in: %fs' % (time.time()-starttime)
+                
+                frames,desc = siftfastpy.GetKeypoints(siftimage)
+                
+                # TODO: descriptoren wieder in frame coordinaten rechnen
+                obj.frames = frames
+                obj.desc = desc
+                print '%d  keypoints found in %fs'%(frames.shape[0],time.time()-starttime)
