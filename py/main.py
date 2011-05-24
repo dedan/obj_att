@@ -160,20 +160,13 @@ try:
             found = False
             
             # if sift not done in this frame, object not yet labelled and already seen a few times
-            if(obj.frames == None and obj.count > 20 and sift == False):
-                rect = cv.BoundingRect(obj.cont)
-                siftimage = siftfastpy.Image(rect[2], rect[3])
-                cv.CvtColor(current_image_frame, gray, cv.CV_BGR2GRAY)
-                gnp = np.asarray(cv.GetSubRect(gray, rect))
-                siftimage.SetData(gnp)
-                frames,desc = siftfastpy.GetKeypoints(siftimage)
-                obj.frames = frames                
-                
+            if(obj.frames == None and obj.count > n_sift and sift == False):
+                t = SiftThread(current_image_frame, obj)
+                t.start()
                 sift = True     # enough work done for this frame
                 
-            
             # when not seen n times, remove object
-            if obj.count < -3:
+            if obj.count < n_forget:
                 objects.remove(obj)
                 continue
             
