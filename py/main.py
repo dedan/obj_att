@@ -11,7 +11,7 @@ from my_classes import random_color
 
 
 # some constants
-OPENNI_INITIALIZATION_FILE = "/home/dedan/Downloads/onipy/OpenNIPythonWrapper/OpenNIConfigurations/BasicColorAndDepth.xml"
+OPENNI_INITIALIZATION_FILE = "../config/BasicColorAndDepth.xml"
 KEY_ESC = 27
 n_bins = 600
 max_range = 6000
