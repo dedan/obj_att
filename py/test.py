@@ -1,27 +1,49 @@
 
-import numpy as np
+
 import cv
-from guppy import hpy
-import pickle
-h = hpy()
+
+bla = cv.CreateMat(100, 100, cv.CV_8UC1)
+
+data = {'pt1': None, 'pt2': None, 'draw': True}
+
+def mouse_call(event, x, y, flags, param):
+    
+    if param['draw']:
+        param['pt2'] = (x, y)
+    
+    if event == cv.CV_EVENT_LBUTTONDOWN:
+        param['pt1'] = (x, y)
+        param['pt2'] = None
+        param['draw'] = True
+
+    if event == cv.CV_EVENT_LBUTTONUP:
+        param['draw'] = False
 
 
-height = 500
-width = 400
+cv.NamedWindow('test')
+cv.SetMouseCallback('test', mouse_call, data)
 
-#mat = cv.CreateMat(height, width, cv.CV_8UC1)
-#cv.SetZero(mat)
+   
+while True:
+    cv.SetZero(bla)
+    if data['pt1'] != None and data['pt2'] != None:
+        cv.Rectangle(bla, data['pt1'], data['pt2'], cv.Scalar(255))
 
-mat = pickle.load(open('/home/dedan/obj_att/out/30mask.m'))
-print np.shape(mat)
+    cv.ShowImage('test', bla)
 
-for i in range(100000):
-    l = []
-    storage = cv.CreateMemStorage(0)
-    conts = cv.FindContours(mat, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE)
-#    del conts
-#    while conts:
-#        l.append(list(conts))
-#        conts = conts.h_next()
+    current_key = cv.WaitKey( 5 ) % 0x100
+    if current_key == 27:
+        break
 
-print h.heap()
+
+
+
+#import pyflann
+#from numpy import *
+#from numpy.random import *
+#dataset = rand(10000, 128)
+#testset = rand(1000, 128)
+#flann = pyflann.FLANN()
+#result,dists = flann.nn(dataset,testset,5,algorithm="kmeans", branching=32, iterations=7, checks=16);
+#print result
+#print dists
