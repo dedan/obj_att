@@ -1,9 +1,3 @@
-'''
-Created on 18 May 2011
-
-@author: dedan
-'''
-
 import random
 import cv
 import siftfastpy
