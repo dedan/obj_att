@@ -21,7 +21,7 @@ import numpy as np
 import siftfastpy
 
 input_path = '../out/'
-res = {'features': np.zeros((0, 131)), 'meta': []}
+db = {'features': np.zeros((0, 131)), 'meta': []}
 id = 0
 
 f_list = glob.glob(input_path + '*.pickle')
@@ -57,12 +57,12 @@ for f in f_list:
         tmp = np.concatenate((frames[:,2:4], desc, depth), axis=1)
         
         # add it to final data structure
-        res['features'] = np.concatenate((res['features'], tmp))
-        res['meta'] += [[id, name, view]] * n_keys
+        db['features'] = np.concatenate((db['features'], tmp))
+        db['meta'] += [[id, name, view]] * n_keys
     id += 1
 
 # store the results
-print 'found %d features in %d files' % (len(res['features']), len(f_list))
+print 'found %d features in %d files' % (len(db['features']), len(f_list))
 out_file = os.path.join(input_path, 'pickled.db')
-pickle.dump(res, open(out_file, 'w'))
+pickle.dump(db, open(out_file, 'w'))
 print 'wrote the database to: %s' % out_file
