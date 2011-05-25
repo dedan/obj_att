@@ -21,6 +21,7 @@ class Obj(object):
         self.id = random.randint(1, 2**31)
         self.frames = None
         self.desc = None
+        self.ids = None
         box = cv.MinAreaRect2(cont)
         self.box_points = [(int(x), int(y)) for x, y in cv.BoxPoints(box)]
         
@@ -37,9 +38,11 @@ class Obj(object):
         
 class SiftThread(threading.Thread):
     
-    def __init__(self, width, height, q, stats):
+    def __init__(self, width, height, q, stats, flann, meta):
         self.q = q
         self.stats = stats
+        self.flann = flann
+        self.meta = meta
         self.gray = cv.CreateMat(height, width, cv.CV_8UC1)
         self._stop = threading.Event()
         threading.Thread.__init__(self)
@@ -62,11 +65,16 @@ class SiftThread(threading.Thread):
                 cv.CvtColor(image, self.gray, cv.CV_BGR2GRAY)
                 gnp = np.asarray(cv.GetSubRect(self.gray, rect))
                 siftimage.SetData(gnp)
-                t0 = time.time()
+#                t0 = time.time()
 
                 # compute keypoints and time how long it takes
                 frames,desc = siftfastpy.GetKeypoints(siftimage)
-                self.stats.append((rect[2]*rect[3], time.time() - t0))
+#                self.stats.append((rect[2]*rect[3], time.time() - t0))
+
+                tmp = np.concatenate((frames[:,2:4], desc), axis=1).astype('float64')
+                result, dists = self.flann.nn_index(tmp, 1, checks=32)
+                obj.ids = [self.meta[res][0] for res in result]
+
                 
                 # transfer keypoints back to full frame coordinates
                 frames[:,0] += rect[0]

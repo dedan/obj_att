@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 import time
 import siftfastpy
+import pyflann
 import Queue
 import pylab as plt
 
@@ -28,7 +29,7 @@ cont_length = 50
 cont_area = 500
 n_sift = 20
 n_forget = -3
-n_threads = 5
+n_threads = 10
 
 # create a list of random colors
 color_tab = [random_color() for i in range(n_colors)]
@@ -42,15 +43,15 @@ if return_code != onipy.XN_STATUS_OK:
 
 
 try:
-
     # initialization stuff
+    print 'loading ..'    
     save_count = 0
     objects = []
     stats = []
     current_key = -1
-    timing = {'t_draw':0, 't_histo':0, 't_track':0, 't_pre':0}
+    timing = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
     loop_c = 0
-    font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8) #Creates a font
+    font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
     elem = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)
     storage = cv.CreateMemStorage(0)
     
@@ -62,7 +63,7 @@ try:
     width = depth_generator.XRes()
     height = depth_generator.YRes()
 
-    # matrix headers and matrices for computation buffers    
+    # matrix headers and matrices for computation buffers
     current_image_frame = cv.CreateImageHeader(image_generator.Res(), cv.IPL_DEPTH_8U, 3)
     current_depth_frame = cv.CreateMatHeader(height, width, cv.CV_16UC1)
     for_thresh = cv.CreateMat(height, width, cv.CV_32FC1)
@@ -72,33 +73,42 @@ try:
     gray = cv.CreateMat(height, width, cv.CV_8UC1)
     obj_draw = np.zeros((height, width))
     cont_draw = np.zeros((height, width))
-    
+
     # create some matrices for drawing
     hist_img = cv.CreateMat(hist_height, width, cv.CV_8UC3)
     out = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
     contours = cv.CreateMat(height, width, cv.CV_8UC3)
-    
+
+    print 'load object db and create flann index ..'
+    db = pickle.load(open('../out/pickled.db'))
+    flann = pyflann.FLANN()
+    # FIXME: currently without depth information because not aligned
+    params = flann.build_index(db['features'][:,:-1])
+
     # start the sifting threadpool
+    print 'starting the sift threads ..'
     sift_pool = Queue.Queue(0)
     threads = []
     for i in range(n_threads):
-        t = SiftThread(width, height, sift_pool, stats)
+        t = SiftThread(width, height, sift_pool, stats, flann, db['meta'])
         t.setDaemon(True)
         t.start()
         threads.append(t)
+    
 
     while True:
 
         return_code = g_context.WaitAndUpdateAll()
 
         # get the images
-        # TODO: ueber frames mitteln (entweder nur im histogramm, vielleicht aber auch ueber ganze frames (mit discount factor)
+        # TODO: ueber frames mitteln (entweder nur im histogramm,
+        # vielleicht aber auch ueber ganze frames (mit discount factor)
         depth_data_raw = depth_generator.GetGrayscale16DepthMapRaw()
         cv.SetData(current_depth_frame, depth_data_raw)
         cv.Convert(current_depth_frame, for_thresh)
         image_data_raw = image_generator.GetBGR24ImageMapRaw()
         cv.SetData(current_image_frame, image_data_raw)
-        
+
         # initialize matrices for drawing and start timing
         t0 = time.time()
         cv.SetZero(hist_img)
@@ -117,7 +127,7 @@ try:
         c = 1
         conts_list = []
 
-        for i in range(max_dist /10):
+        for i in range(max_dist / 10):
             cur_value = hist[i]
             next_value = hist[i+1]
             
@@ -235,7 +245,7 @@ try:
                     cv.Rectangle(contours, 
                                  (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1), 
                                  (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1), 
-                                 cv.Scalar(200,200,200))
+                                 color_tab[obj.ids[i]])
             else:
                 col = cv.Scalar(0,0,255)
             for j in range(4):
@@ -279,6 +289,6 @@ finally:
     g_context.Shutdown()
     
     # finally plot how sift execution time depends on patch size
-    plt.figure()
-    plt.scatter([bla[0] for bla in stats], [bla[1] for bla in stats])
-    plt.show()
+#    plt.figure()
+#    plt.scatter([bla[0] for bla in stats], [bla[1] for bla in stats])
+#    plt.show()
