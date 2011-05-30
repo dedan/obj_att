@@ -30,6 +30,18 @@ def on_mouse(event, x, y, flags, param):
     if event == cv.CV_EVENT_LBUTTONUP:
         param['draw'] = False
 
+print """program to record rbg and depth images of objects
+
+this images can then be used to compute sift featues for a library.
+Description of input Keys:
+    n: New object to record
+    s: Series of pictures will be recorded
+    r: record a single picture
+    w: write recorded images to disk
+
+use the mouse to draw a rectangle about the object you want to record
+"""
+
 # settings
 OPENNI_INITIALIZATION_FILE = "../config/BasicColorAndDepth.xml"
 intervall = 1
@@ -112,12 +124,25 @@ try:
         current_key = cv.WaitKey( 5 ) % 0x100
         if current_key == KEY_ESC:
             break
-        elif current_key == ord('r'):
+        elif current_key == ord('n'):
             obj_name = raw_input('please enter object name: ')
-            print 'start recording'
+        elif current_key == ord('w'):
+            print 'took %d images and store them in %s.pickle' % (len(store['image']), obj_name)
+            pickle.dump(store, open('../out/%s.pickle' % obj_name, 'w'))
+            store = {'image': [], 'depth': []}           
+        elif current_key == ord('s'):
+            print 'record series of pictures from rotating object'
+            print 'and write it to disk'
             record = True
             t0 = time.time()
             t_last = t0
+        elif current_key == ord('r'):
+            print 'added an image to the list, write to disk with \'w\''
+            rect = cv.BoundingRect([data['pt1'], data['pt2']])
+            sub = cv.GetSubRect(current_image_frame, rect)
+            store['image'].append(np.asarray(sub))
+            sub = cv.GetSubRect(current_depth_frame, rect)
+            store['depth'].append(np.asarray(sub))
 
 finally:
     g_context.Shutdown()
