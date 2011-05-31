@@ -12,6 +12,7 @@ import pylab as plt
 from protoobj import Obj
 from protoobj import random_color
 from protoobj import SiftThread
+from protoobj import Rect
 
 
 # some constants
@@ -195,19 +196,20 @@ try:
                 objects.remove(obj)
                 continue
             
-            # draw the contour in an image for comparison
-            obj_draw[:] = 0
-            cv.FillPoly(obj_draw, [obj.cont], 1)
-            area = np.dot(np.ravel(obj_draw), np.ravel(obj_draw))
+            # get bounding rectangle 1
+            r1 = Rect(cv.BoundingRect(obj.cont))
+            area = r1.width * r1.height
             
             # check for each object whether we see the contour again in this frame
             for cont in conts_list:
-                cont_draw[:] = 0
-                cv.FillPoly(cont_draw, [cont], 1)
+                
+                r2 = Rect(cv.BoundingRect(cont))
+                w = min(r1.x2, r2.x2) - max(r1.x1, r2.x1)
+                h = min(r1.y2, r2.y2) - max(r1.y1, r2.y1)
+                overlap = w * h
                 
                 # we found it
-                # TODO: maybe I can make this part parallel (but then I would have to compute all and cannot stop when found, hmm)
-                if np.dot(np.ravel(obj_draw), np.ravel(cont_draw)) > 0.5 * area:
+                if w > 0 and h > 0 and overlap > 0.5 * area:
                     obj.cont = cont            # update the contour to track movements
                     obj.count = obj.count + 1  # this helps new objects to recover from negative init
                     found = True
@@ -236,8 +238,8 @@ try:
                 
                 # label with number of keypoints
                 cv.PutText(contours, 
-                           "k: %d" % obj.frames.shape[0], 
-                           obj.box_points[0], 
+                           "k: %d" % obj.count,
+                           obj.box_points[0],
                            font, cv.Scalar(255,255,255))
                 
                 # plot the keypoints

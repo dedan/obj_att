@@ -12,6 +12,15 @@ def random_color():
     icolor = random.randint (0, 0xFFFFFF)
     return cv.Scalar (icolor & 0xff, (icolor >> 8) & 0xff, (icolor >> 16) & 0xff)
 
+class Rect(object):
+    def __init__(self, r):
+        self.width = r[2]
+        self.height = r[3]
+        self.x1 = r[0]
+        self.y1 = r[1]
+        self.x2 = r[0] + self.width
+        self.y2 = r[1] + self.height
+
 
 class Obj(object):
     def __init__(self, cont):
