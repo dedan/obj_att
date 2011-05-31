@@ -34,6 +34,7 @@ for f in f_list:
     store = pickle.load(open(f))
     name = os.path.splitext(os.path.basename(f))[0]
     n_views = len(store['image'])
+    n_features = 0
     
     # iterate over the views
     print 'working on: %s (%d views)' % (name, n_views)
@@ -51,6 +52,7 @@ for f in f_list:
         
         # get depth information and concatenate all to one feature vector
         n_keys = np.shape(frames)[0]
+        n_features += n_keys
         depth = np.zeros((n_keys,1))
         for j in range(n_keys):
             depth[j] = store['depth'][view][int(frames[j,1]), int(frames[j,0])]
@@ -60,8 +62,10 @@ for f in f_list:
         db['features'] = np.concatenate((db['features'], tmp))
         db['meta'] += [[id, name, view]] * n_keys
     id += 1
+    print 'found %d features' % n_features
 
 # store the results
+print '\nfinished'
 print 'found %d features in %d files' % (len(db['features']), len(f_list))
 out_file = os.path.join(input_path, 'pickled.db')
 pickle.dump(db, open(out_file, 'w'))
