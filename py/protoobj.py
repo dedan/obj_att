@@ -80,9 +80,24 @@ class SiftThread(threading.Thread):
                 frames,desc = siftfastpy.GetKeypoints(siftimage)
 #                self.stats.append((rect[2]*rect[3], time.time() - t0))
 
+                # compute feature vector
                 tmp = np.concatenate((frames[:,2:4], desc), axis=1).astype('float64')
-                result, dists = self.flann.nn_index(tmp, 1, checks=32)
-                obj.ids = [self.meta[res][0] for res in result]
+                
+                # search in the flann tree for the feature vectors
+                n = 2
+                thr = 1.5
+                result, dists = self.flann.nn_index(tmp, n, checks=32)
+                
+                # ismatch contains the indices in the testset for which a match is found
+                ismatch = dists[:,1] > thr * dists[:,0]
+                               
+                # meta contains the index to object-ID mapping
+                obj.ids = []
+                for i, res in enumerate(result):
+                    if ismatch[i]:
+                        obj.ids.append(self.meta[res[0]][0])
+                print obj.ids
+#                obj.ids = [self.meta[res][0] for i, res in enumerate(result) if ismatch[i]]
 
                 
                 # transfer keypoints back to full frame coordinates

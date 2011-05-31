@@ -243,10 +243,14 @@ try:
                            font, cv.Scalar(255,255,255))
                 
                 # plot the keypoints
-                for i in range(obj.frames.shape[0]):
-                    cv.Rectangle(contours, 
-                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1), 
-                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1), 
+                for i in range(len(obj.ids)):
+                    cv.Rectangle(contours,
+                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1),
+                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1),
+                                 color_tab[obj.ids[i]])
+                    cv.Rectangle(current_image_frame,
+                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1),
+                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1),
                                  color_tab[obj.ids[i]])
             else:
                 col = cv.Scalar(0,0,255)
