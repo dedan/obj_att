@@ -53,6 +53,8 @@ class SiftThread(threading.Thread):
         self.flann = flann
         self.meta = meta
         self.gray = cv.CreateMat(height, width, cv.CV_8UC1)
+        self.mask = cv.CreateMat(height, width, cv.CV_8UC1)
+
         self._stop = threading.Event()
         threading.Thread.__init__(self)
         
@@ -67,11 +69,12 @@ class SiftThread(threading.Thread):
             if task != None:
                 obj, image = task
         
-                # TODO: vielleicht doch die minarearect benutzen, ausschneiden und drehen
-                # or maybe not: http://stackoverflow.com/questions/4230572/cvbox2d-processing/4535459#4535459
                 rect = cv.BoundingRect(obj.cont)
                 siftimage = siftfastpy.Image(rect[2], rect[3])
                 cv.CvtColor(image, self.gray, cv.CV_BGR2GRAY)
+                cv.SetZero(self.mask)
+                cv.FillPoly(self.mask, [obj.cont], cv.Scalar(255))
+                cv.And(self.gray, self.mask, self.gray)
                 gnp = np.asarray(cv.GetSubRect(self.gray, rect))
                 siftimage.SetData(gnp)
 #                t0 = time.time()
