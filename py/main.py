@@ -98,7 +98,7 @@ try:
     db = pickle.load(open('../out/pickled.db'))
     flann = pyflann.FLANN()
     # FIXME: currently without depth information because not aligned
-    params = flann.build_index(db['features'][:,:-1], target_precision=0.95)
+    params = flann.build_index(db['features'][:, :-1], target_precision=0.95)
 
     # start the sifting threadpool
     print 'starting the sift threads ..'
@@ -144,7 +144,7 @@ try:
 
         for i in range(max_dist / 10):
             cur_value = hist[i]
-            next_value = hist[i+1]
+            next_value = hist[i + 1]
             
             # still walking up the hill
             if cur_value > hist[end]:
@@ -154,8 +154,8 @@ try:
             if ((cur_value < perc * hist[end]) & (1.1 * cur_value < next_value)):
 
                 # cut out a certain depth layer                
-                cv.Threshold(for_thresh, min_thresh, start*10, 255, cv.CV_THRESH_BINARY)
-                cv.Threshold(for_thresh, max_thresh, i*10, 255, cv.CV_THRESH_BINARY_INV)
+                cv.Threshold(for_thresh, min_thresh, start * 10, 255, cv.CV_THRESH_BINARY)
+                cv.Threshold(for_thresh, max_thresh, i * 10, 255, cv.CV_THRESH_BINARY_INV)
                 cv.And(min_thresh, max_thresh, and_thresh)
                 
                 # erode the layer and find contours
@@ -176,8 +176,8 @@ try:
             # draw current value in histogram
             pts = [(int(i * x_scale), hist_height),
                    (int(i * x_scale + x_scale), hist_height),
-                   (int(i * x_scale + x_scale), int(hist_height-next_value*hist_height/max_hist)),
-                   (int(i * x_scale), int(hist_height-cur_value*hist_height/max_hist))]
+                   (int(i * x_scale + x_scale), int(hist_height - next_value * hist_height / max_hist)),
+                   (int(i * x_scale), int(hist_height - cur_value * hist_height / max_hist))]
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
           
         # time the histogram clustering  
@@ -237,24 +237,24 @@ try:
                 continue
             cv.FillPoly(contours, [obj.cont], obj.color)
             if obj.frames != None:
-                col = cv.Scalar(0,255,0)
+                col = cv.Scalar(0, 255, 0)
                 
                 # label with number of keypoints
-                cv.PutText(contours, 
+                cv.PutText(contours,
                            "k: %s" % obj.ids,
                            obj.box_points[0],
-                           font, cv.Scalar(255,255,255))
+                           font, cv.Scalar(255, 255, 255))
                 
                 # plot the keypoints
                 for i in range(obj.frames.shape[0]):
                     cv.Rectangle(contours,
-                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1),
-                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1),
-                                 cv.Scalar(255,255,255))
+                                 (int(obj.frames[i, 0]) - 1, int(obj.frames[i, 1]) - 1),
+                                 (int(obj.frames[i, 0]) + 1, int(obj.frames[i, 1]) + 1),
+                                 cv.Scalar(255, 255, 255))
             else:
-                col = cv.Scalar(0,0,255)
+                col = cv.Scalar(0, 0, 255)
             for j in range(4):
-                cv.Line(contours, obj.box_points[j], obj.box_points[(j+1)%4], col)
+                cv.Line(contours, obj.box_points[j], obj.box_points[(j + 1) % 4], col)
 
         # output images
         outroi = (0, hist_height, width, height)
@@ -302,7 +302,7 @@ try:
             cv.SaveImage(outpath + '/out_%d.jpg' % save_count, out)
             with open(outpath + '/objects_%d.pickle' % save_count, 'w') as f:
                 pickle.dump(objects, f)
-            save_count = save_count +1
+            save_count = save_count + 1
 
 except Exception as inst:
     print inst
