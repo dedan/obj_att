@@ -90,7 +90,7 @@ try:
     db = pickle.load(open('../out/pickled.db'))
     flann = pyflann.FLANN()
     # FIXME: currently without depth information because not aligned
-    params = flann.build_index(db['features'][:,:-1])
+    params = flann.build_index(db['features'][:,:-1], target_precision=0.95)
 
     # start the sifting threadpool
     print 'starting the sift threads ..'
@@ -181,7 +181,8 @@ try:
             found = False
             
             # if sift not done in this frame, object not yet labelled and already seen a few times
-            if(obj.frames == None and obj.count > n_sift and sift == False):
+            if((obj.frames == None and obj.count > n_sift and sift == False) or
+              (obj.frames != None and obj.count % 30 == 0)):
                 sift_pool.put((obj, current_image_frame))
                 sift = True     # enough work added for this frame
                 
@@ -232,20 +233,16 @@ try:
                 
                 # label with number of keypoints
                 cv.PutText(contours, 
-                           "k: %d" % obj.count,
+                           "k: %s" % obj.ids,
                            obj.box_points[0],
                            font, cv.Scalar(255,255,255))
                 
                 # plot the keypoints
-                for i in range(len(obj.ids)):
+                for i in range(obj.frames.shape[0]):
                     cv.Rectangle(contours,
                                  (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1),
                                  (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1),
-                                 color_tab[obj.ids[i]])
-                    cv.Rectangle(current_image_frame,
-                                 (int(obj.frames[i,0])-1, int(obj.frames[i,1])-1),
-                                 (int(obj.frames[i,0])+1, int(obj.frames[i,1])+1),
-                                 color_tab[obj.ids[i]])
+                                 cv.Scalar(255,255,255))
             else:
                 col = cv.Scalar(0,0,255)
             for j in range(4):
