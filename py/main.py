@@ -61,6 +61,7 @@ try:
     g_context.FindExistingNode(onipy.XN_NODE_TYPE_IMAGE, image_generator)
     depth_generator = onipy.OpenNIDepthGenerator()
     g_context.FindExistingNode(onipy.XN_NODE_TYPE_DEPTH, depth_generator)
+    depth_generator.set_viewpoint(image_generator)
     width = depth_generator.XRes()
     height = depth_generator.YRes()
 
@@ -288,6 +289,8 @@ try:
             for thread in threads:
                 thread.stop()
             break
+except Exception as inst:
+    print inst
 
 finally:
     for key, val in timing.iteritems():

@@ -1,0 +1,60 @@
+Index: OpenNIPythonWrapper/Source/wrapper.cpp
+===================================================================
+--- OpenNIPythonWrapper/Source/wrapper.cpp	(revision 20)
++++ OpenNIPythonWrapper/Source/wrapper.cpp	(working copy)
+@@ -161,7 +161,7 @@
+ 		bases< xn::ProductionNode > >( "OpenNIDepthGenerator" )
+ 
+ 		// methods
+-
++                .def( "set_viewpoint", &OpenNIDepthGeneratorWrapper::set_viewpoint)
+ 		.def( "IsValid", &OpenNIDepthGeneratorWrapper::IsValid )
+ 		.def( "XRes", &OpenNIDepthGeneratorWrapper::XRes )
+ 		.def( "YRes", &OpenNIDepthGeneratorWrapper::YRes )
+Index: OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.cpp
+===================================================================
+--- OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.cpp	(revision 20)
++++ OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.cpp	(working copy)
+@@ -26,6 +26,12 @@
+ 
+ #include <PythonOutputStream.h>
+ 
++// set the viewpoint for rgb and depth image alignment
++void OpenNIDepthGeneratorWrapper::set_viewpoint(OpenNIImageGeneratorWrapper imgen)
++{
++    this->GetAlternativeViewPointCap().SetViewPoint(imgen);
++}       // OpenNIDepthGeneratorWrapper::set_viewpoint
++
+ OpenNIDepthGeneratorWrapper::OpenNIDepthGeneratorWrapper()
+ {
+ 
+Index: OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.h
+===================================================================
+--- OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.h	(revision 20)
++++ OpenNIPythonWrapper/Source/OpenNIDepthGeneratorWrapper.h	(working copy)
+@@ -30,13 +30,18 @@
+ 
+ // custom
+ #include "OpenNIWrapperTypes.h"
++#include "OpenNIImageGeneratorWrapper.h"
+ 
++
+ class OpenNIDepthGeneratorWrapper : public xn::DepthGenerator
+ {
+ 
+ public:
+ 	OpenNIDepthGeneratorWrapper();
+ 
++        // set the viewpoint for rgb and depth image alignment
++        void set_viewpoint(OpenNIImageGeneratorWrapper imgen);
++
+ 	// return the x resolution of the map
+ 	XnUInt32 XRes() const;	
+ 
+@@ -56,4 +61,4 @@
+ 
+ };
+ 
+-#endif	// OPENNI_DEPTH_GENERATOR_WRAPPER_H
+\ No newline at end of file
++#endif	// OPENNI_DEPTH_GENERATOR_WRAPPER_H
