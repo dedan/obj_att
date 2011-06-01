@@ -33,6 +33,7 @@ n_sift = 20
 n_forget = -3
 n_threads = 10
 outpath = '../out/'
+record_video = True
 
 # compute a timestamp for output file
 outpath += datetime.datetime.now().strftime('%d%m%y_%H%M%S')
@@ -69,6 +70,13 @@ try:
     depth_generator.set_viewpoint(image_generator)
     width = depth_generator.XRes()
     height = depth_generator.YRes()
+    
+    # open video file
+    if record_video:
+        if not os.path.exists(outpath):
+            os.mkdir(outpath)
+            writer = cv.CreateVideoWriter(outpath + '/video.avi', cv.FOURCC('P', 'I', 'M', '1'), 30, (width, height + hist_height))
+
 
     # matrix headers and matrices for computation buffers
     current_image_frame = cv.CreateImageHeader(image_generator.Res(), cv.IPL_DEPTH_8U, 3)
@@ -255,25 +263,29 @@ try:
         histroi = (0, 0, width, hist_height)
         a = cv.GetSubRect(out, histroi)
         cv.Copy(hist_img, a)
-        loop_c +=1
+        loop_c += 1
         timing['t_draw'] += time.time() - t0
         
         # print execution time statistics
         i = 0
         for key, val in timing.iteritems():
-            cv.PutText(out, 
-                       "%s: %f" % (key, val / loop_c), 
-                       (0, height+hist_height-(len(timing)*20)+(i*15)),
-                       font, 
-                       cv.Scalar(255,255,255))
+            cv.PutText(out,
+                       "%s: %f" % (key, val / loop_c),
+                       (0, height + hist_height - (len(timing) * 20) + (i * 15)),
+                       font,
+                       cv.Scalar(255, 255, 255))
             i += 1
 
         # show the images
-        cv.ShowImage( "Depth Stream", contours)
+        cv.ShowImage("Depth Stream", contours)
         cv.ShowImage("conts", out)
+        if record_video:
+            bla = cv.CreateImage((width, height + hist_height), cv.IPL_DEPTH_8U, 3)
+            cv.SetData(bla, out.tostring())
+            cv.WriteFrame(writer, bla)
         
         # wait for user input (keys)
-        current_key = cv.WaitKey( 5 ) % 0x100
+        current_key = cv.WaitKey(5) % 0x100
         if current_key == KEY_ESC:
             for thread in threads:
                 thread.stop()
