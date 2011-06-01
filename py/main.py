@@ -3,7 +3,9 @@ from protoobj import Obj, Rect, SiftThread, random_color
 import OpenNIPythonWrapper as onipy
 import Queue
 import cv
+import datetime
 import numpy as np
+import os.path
 import pickle
 import pyflann
 import pylab as plt
@@ -30,6 +32,10 @@ cont_area = 500
 n_sift = 20
 n_forget = -3
 n_threads = 10
+outpath = '../out/'
+
+# compute a timestamp for output file
+outpath += datetime.datetime.now().strftime('%d%m%y_%H%M%S')
 
 # create a list of random colors
 color_tab = [random_color() for i in range(n_colors)]
@@ -167,19 +173,7 @@ try:
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
           
         # time the histogram clustering  
-        timing['t_pre'] += time.time() - t0
-
-        # pickle the contours and save images
-        if current_key == ord('s'):
-            scaled = cv.CreateMat(height, width, cv.CV_8UC1)
-            cv.ConvertScale(current_depth_frame, scaled, 0.05)
-            cv.SaveImage('../out/image_%d.jpg' % save_count, current_image_frame)
-            cv.SaveImage('../out/depth_%d.jpg' % save_count, scaled)
-
-            with open('../out/objects_%d.pickle' % save_count, 'w') as f:
-                pickle.dump(objects, f)
-            save_count = save_count +1
-        
+        timing['t_pre'] += time.time() - t0      
         
         # iterate over tracked objects
         sift = False
@@ -287,6 +281,20 @@ try:
             for thread in threads:
                 thread.stop()
             break
+        
+        # pickle the contours and save images
+        elif current_key == ord('s'):
+            if not os.path.exists(outpath):
+                os.mkdir(outpath)
+            scaled = cv.CreateMat(height, width, cv.CV_8UC1)
+            cv.ConvertScale(current_depth_frame, scaled, 0.05)
+            cv.SaveImage(outpath + '/image_%d.jpg' % save_count, current_image_frame)
+            cv.SaveImage(outpath + '/depth_%d.jpg' % save_count, scaled)
+            cv.SaveImage(outpath + '/out_%d.jpg' % save_count, out)
+            with open(outpath + '/objects_%d.pickle' % save_count, 'w') as f:
+                pickle.dump(objects, f)
+            save_count = save_count +1
+
 except Exception as inst:
     print inst
     for tb in traceback.format_tb(sys.exc_info()[2]):
