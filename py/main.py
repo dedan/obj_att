@@ -1,18 +1,17 @@
 
-import cv
+from protoobj import Obj, Rect, SiftThread, random_color
 import OpenNIPythonWrapper as onipy
+import Queue
+import cv
 import numpy as np
 import pickle
-import time
-import siftfastpy
 import pyflann
-import Queue
 import pylab as plt
+import siftfastpy
+import sys
+import time
+import traceback
 
-from protoobj import Obj
-from protoobj import random_color
-from protoobj import SiftThread
-from protoobj import Rect
 
 
 # some constants
@@ -159,12 +158,12 @@ try:
                 start, end = i, i
                 c += 1
                 
-               
+            x_scale = 1
             # draw current value in histogram
-            pts = [(i, hist_height),
-                   (i, hist_height),
-                   (i, int(hist_height-next_value*hist_height/max_hist)),
-                   (i, int(hist_height-cur_value*hist_height/max_hist))]
+            pts = [(int(i * x_scale), hist_height),
+                   (int(i * x_scale + x_scale), hist_height),
+                   (int(i * x_scale + x_scale), int(hist_height-next_value*hist_height/max_hist)),
+                   (int(i * x_scale), int(hist_height-cur_value*hist_height/max_hist))]
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
           
         # time the histogram clustering  
@@ -279,7 +278,6 @@ try:
             i += 1
 
         # show the images
-        cv.ShowImage( "Image Stream", current_image_frame )
         cv.ShowImage( "Depth Stream", contours)
         cv.ShowImage("conts", out)
         
@@ -291,6 +289,8 @@ try:
             break
 except Exception as inst:
     print inst
+    for tb in traceback.format_tb(sys.exc_info()[2]):
+        print tb
 
 finally:
     for key, val in timing.iteritems():
