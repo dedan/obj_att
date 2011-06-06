@@ -252,10 +252,11 @@ try:
                 
                 # plot the keypoints
                 for i in range(obj.frames.shape[0]):
-                    cv.Rectangle(contours,
-                                 (int(obj.frames[i, 0]) - 1, int(obj.frames[i, 1]) - 1),
-                                 (int(obj.frames[i, 0]) + 1, int(obj.frames[i, 1]) + 1),
-                                 cv.Scalar(255, 255, 255))
+                    if int(obj.frames[i, 0]) + 1 < width and int(obj.frames[i, 1]) + 1 < height:
+                        cv.Rectangle(contours,
+                                     (int(obj.frames[i, 0]) - 1, int(obj.frames[i, 1]) - 1),
+                                     (int(obj.frames[i, 0]) + 1, int(obj.frames[i, 1]) + 1),
+                                     cv.Scalar(255, 255, 255))
             else:
                 col = cv.Scalar(0, 0, 255)
             for j in range(4):
