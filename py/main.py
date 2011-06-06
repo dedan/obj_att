@@ -20,13 +20,14 @@ max_range   = 4000          # minimum and maximum depth values
 min_range   = 800           # used in the histogram
 k_width     = 5             # width (in pixels) of kernel used for smoothing of the histogram
 perc        = 0.2           # a point with value perc * peak of last hill in histogram is end of a cluster
-cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
-cont_area   = 500           # minimum area of a contour
 n_sift      = 20            # only compute sift features after knowing a object for n_sift frames
 n_forget    = -3            # forget an object after not seeing it for n_forget frames
 n_threads   = 10            # number of threads in the threadpool
 n_colors    = 100           # number of random colors which are created for object coloring
 outpath     = '../out/'     # the images and video are written here
+cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
+min_cont_area = 500         # minimum area of a contour
+max_cont_area = 5000        # maximum area of a contour
 record_video = True         # should a video be recorded?
 t_sift_plot  = True         # plot sift patch size to sift execution time relation
 
@@ -165,7 +166,7 @@ try:
                 
                 # collect all interesting contours in a list
                 while conts:
-                    if len(conts) > cont_length and cv.ContourArea(conts) > cont_area:
+                    if len(conts) > cont_length and min_cont_area < cv.ContourArea(conts) < max_cont_area:
                         conts_list.append(list(conts))
                     conts = conts.h_next()
                 
