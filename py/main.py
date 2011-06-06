@@ -99,7 +99,7 @@ try:
     contours    = cv.CreateMat(height, width, cv.CV_8UC3)
 
     print 'load object db and create flann index ..'
-    db      = pickle.load(open('../out/pickled.db'))
+    db      = pickle.load(open('../data/pickled.db'))
     flann   = pyflann.FLANN()
     # FIXME: currently without depth information because not aligned
     params  = flann.build_index(db['features'][:, :-1], target_precision=0.95)
