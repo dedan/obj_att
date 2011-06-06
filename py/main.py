@@ -28,7 +28,7 @@ outpath     = '../out/'     # the images and video are written here
 cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
 min_cont_area = 500         # minimum area of a contour
 max_cont_area = 5000        # maximum area of a contour
-record_video = True         # should a video be recorded?
+record_video = False         # should a video be recorded?
 t_sift_plot  = True         # plot sift patch size to sift execution time relation
 
 
@@ -176,10 +176,13 @@ try:
                 
             x_scale = 1
             # draw current value in histogram
-            pts = [(int(i * x_scale), hist_height),
-                   (int(i * x_scale + x_scale), hist_height),
-                   (int(i * x_scale + x_scale), int(hist_height - next_value * hist_height / max_hist)),
-                   (int(i * x_scale), int(hist_height - cur_value * hist_height / max_hist))]
+            try:
+                pts = [(int(i * x_scale), hist_height),
+                       (int(i * x_scale + x_scale), hist_height),
+                       (int(i * x_scale + x_scale), int(hist_height - next_value * hist_height / max_hist)),
+                       (int(i * x_scale), int(hist_height - cur_value * hist_height / max_hist))]
+            except:
+                print 'don\t put your hand in front of the camera !!!'
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
           
         # time the histogram clustering  
