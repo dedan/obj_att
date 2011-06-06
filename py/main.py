@@ -29,7 +29,10 @@ cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
 min_cont_area = 500         # minimum area of a contour
 max_cont_area = 5000        # maximum area of a contour
 record_video = False         # should a video be recorded?
-t_sift_plot  = True         # plot sift patch size to sift execution time relation
+t_sift_plot  = False         # plot sift patch size to sift execution time relation
+draw_contours   = True       # draw the contours (detected from depth image)
+draw_keypoints  = True       # draw sift keypoints
+draw_box        = True       # draw a box around the detected objects
 
 
 # some constants
@@ -240,8 +243,10 @@ try:
         for obj in objects:
             if obj.count < 0:
                 continue
-            cv.FillPoly(contours, [obj.cont], obj.color)
-            if obj.frames != None:
+            
+            if draw_contours:
+                cv.FillPoly(contours, [obj.cont], obj.color)
+            if obj.frames != None and draw_keypoints:
                 col = cv.Scalar(0, 255, 0)
                 
                 # label with number of keypoints
@@ -259,8 +264,9 @@ try:
                                      cv.Scalar(255, 255, 255))
             else:
                 col = cv.Scalar(0, 0, 255)
-            for j in range(4):
-                cv.Line(contours, obj.box_points[j], obj.box_points[(j + 1) % 4], col)
+            if draw_box:
+                for j in range(4):
+                    cv.Line(contours, obj.box_points[j], obj.box_points[(j + 1) % 4], col)
 
         # output images
         outroi  = (0, hist_height, width, height)
