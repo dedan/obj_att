@@ -77,11 +77,11 @@ class SiftThread(threading.Thread):
                 cv.And(self.gray, self.mask, self.gray)
                 gnp = np.asarray(cv.GetSubRect(self.gray, rect))
                 siftimage.SetData(gnp)
-#                t0 = time.time()
+                t0 = time.time()
 
                 # compute keypoints and time how long it takes
                 frames,desc = siftfastpy.GetKeypoints(siftimage)
-#                self.stats.append((rect[2]*rect[3], time.time() - t0))
+                self.stats.append((rect[2]*rect[3], time.time() - t0))
 
                 # compute feature vector
                 tmp = np.concatenate((frames[:,2:4], desc), axis=1).astype('float64')
@@ -99,7 +99,6 @@ class SiftThread(threading.Thread):
                 for i, res in enumerate(result):
                     if ismatch[i]:
                         obj.ids.append(self.meta[res[0]][0])
-                print obj.ids
 #                obj.ids = [self.meta[res][0] for i, res in enumerate(result) if ismatch[i]]
 
                 

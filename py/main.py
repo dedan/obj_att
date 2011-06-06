@@ -9,35 +9,35 @@ import os.path
 import pickle
 import pyflann
 import pylab as plt
-import siftfastpy
 import sys
 import time
 import traceback
 
 
+# settings
+n_bins      = 600           # resolution of the histogram
+max_range   = 4000          # minimum and maximum depth values
+min_range   = 800           # used in the histogram
+k_width     = 5             # width (in pixels) of kernel used for smoothing of the histogram
+perc        = 0.2           # a point with value perc * peak of last hill in histogram is end of a cluster
+cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
+cont_area   = 500           # minimum area of a contour
+n_sift      = 20            # only compute sift features after knowing a object for n_sift frames
+n_forget    = -3            # forget an object after not seeing it for n_forget frames
+n_threads   = 10            # number of threads in the threadpool
+n_colors    = 100           # number of random colors which are created for object coloring
+outpath     = '../out/'     # the images and video are written here
+record_video = True         # should a video be recorded?
+t_sift_plot  = True         # plot sift patch size to sift execution time relation
+
 
 # some constants
 OPENNI_INITIALIZATION_FILE = "../config/BasicColorAndDepth.xml"
 KEY_ESC = 27
-n_bins = 600
-max_range = 6000
-min_range = 800
 hist_height = 64
-k_width = 5
-perc = 0.2
-max_dist = 4000
-n_colors = 100
-cont_length = 50
-cont_area = 500
-n_sift = 20
-n_forget = -3
-n_threads = 10
-outpath = '../out/'
-record_video = True
 
 # compute a timestamp for output file
 outpath += datetime.datetime.now().strftime('%d%m%y_%H%M%S')
-
 # create a list of random colors
 color_tab = [random_color() for i in range(n_colors)]
 
@@ -58,9 +58,9 @@ try:
     current_key = -1
     timing = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
     loop_c = 0
-    font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)
-    elem = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)
-    storage = cv.CreateMemStorage(0)
+    font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)             # opencv font
+    elem = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)      # used by the morphological operator (erode)
+    storage = cv.CreateMemStorage(0)                                        # needed by find contours
     
     # the image generators
     image_generator = onipy.OpenNIImageGenerator()
@@ -68,6 +68,7 @@ try:
     depth_generator = onipy.OpenNIDepthGenerator()
     g_context.FindExistingNode(onipy.XN_NODE_TYPE_DEPTH, depth_generator)
     depth_generator.set_viewpoint(image_generator)
+    
     width = depth_generator.XRes()
     height = depth_generator.YRes()
     
@@ -142,7 +143,7 @@ try:
         c = 1
         conts_list = []
 
-        for i in range(max_dist / 10):
+        for i in range(len(hist)-1):
             cur_value = hist[i]
             next_value = hist[i + 1]
             
@@ -315,6 +316,7 @@ finally:
     g_context.Shutdown()
     
     # finally plot how sift execution time depends on patch size
-#    plt.figure()
-#    plt.scatter([bla[0] for bla in stats], [bla[1] for bla in stats])
-#    plt.show()
+    if t_sift_plot:
+        plt.figure()
+        plt.scatter([bla[0] for bla in stats], [bla[1] for bla in stats])
+        plt.show()
