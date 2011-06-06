@@ -33,7 +33,7 @@ t_sift_plot  = True         # plot sift patch size to sift execution time relati
 
 # some constants
 OPENNI_INITIALIZATION_FILE = "../config/BasicColorAndDepth.xml"
-KEY_ESC = 27
+KEY_ESC     = 27
 hist_height = 64
 
 # compute a timestamp for output file
@@ -42,7 +42,7 @@ outpath += datetime.datetime.now().strftime('%d%m%y_%H%M%S')
 color_tab = [random_color() for i in range(n_colors)]
 
 # open the driver
-g_context = onipy.OpenNIContext()
+g_context   = onipy.OpenNIContext()
 return_code = g_context.InitFromXmlFile(OPENNI_INITIALIZATION_FILE)
 
 if return_code != onipy.XN_STATUS_OK:
@@ -52,77 +52,77 @@ if return_code != onipy.XN_STATUS_OK:
 try:
     # initialization stuff
     print 'loading ..'    
-    save_count = 0
-    objects = []
-    stats = []
+    save_count  = 0
+    objects     = []
+    stats       = []
     current_key = -1
-    timing = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
-    loop_c = 0
-    font = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)             # opencv font
-    elem = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)      # used by the morphological operator (erode)
+    timing      = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
+    loop_c      = 0
+    font    = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)          # opencv font
+    elem    = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)   # used by the morphological operator (erode)
     storage = cv.CreateMemStorage(0)                                        # needed by find contours
     
     # the image generators
     image_generator = onipy.OpenNIImageGenerator()
-    g_context.FindExistingNode(onipy.XN_NODE_TYPE_IMAGE, image_generator)
+    g_context.FindExistingNode(onipy.XN_NODE_TYPE_IMAGE, image_generator)    
     depth_generator = onipy.OpenNIDepthGenerator()
-    g_context.FindExistingNode(onipy.XN_NODE_TYPE_DEPTH, depth_generator)
+    g_context.FindExistingNode(onipy.XN_NODE_TYPE_DEPTH, depth_generator)    
+    width           = depth_generator.XRes()
+    height          = depth_generator.YRes()        
+
+    # align the images
     depth_generator.set_viewpoint(image_generator)
-    
-    width = depth_generator.XRes()
-    height = depth_generator.YRes()
     
     # open video file
     if record_video:
         if not os.path.exists(outpath):
             os.mkdir(outpath)
-            writer = cv.CreateVideoWriter(outpath + '/video.avi', cv.FOURCC('P', 'I', 'M', '1'), 30, (width, height + hist_height))
+            writer = cv.CreateVideoWriter(outpath + '/video.avi', cv.FOURCC('P', 'I', 'M', '1'), 
+                                          30, (width, height + hist_height))
 
 
     # matrix headers and matrices for computation buffers
     current_image_frame = cv.CreateImageHeader(image_generator.Res(), cv.IPL_DEPTH_8U, 3)
     current_depth_frame = cv.CreateMatHeader(height, width, cv.CV_16UC1)
-    for_thresh = cv.CreateMat(height, width, cv.CV_32FC1)
-    min_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
-    max_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
-    and_thresh = cv.CreateMat(height, width, cv.CV_8UC1)
-    gray = cv.CreateMat(height, width, cv.CV_8UC1)
-    obj_draw = np.zeros((height, width))
-    cont_draw = np.zeros((height, width))
+    for_thresh  = cv.CreateMat(height, width, cv.CV_32FC1)
+    min_thresh  = cv.CreateMat(height, width, cv.CV_8UC1)
+    max_thresh  = cv.CreateMat(height, width, cv.CV_8UC1)
+    and_thresh  = cv.CreateMat(height, width, cv.CV_8UC1)
+    gray        = cv.CreateMat(height, width, cv.CV_8UC1)
+    obj_draw    = np.zeros((height, width))
+    cont_draw   = np.zeros((height, width))
 
     # create some matrices for drawing
-    hist_img = cv.CreateMat(hist_height, width, cv.CV_8UC3)
-    out = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
-    contours = cv.CreateMat(height, width, cv.CV_8UC3)
+    hist_img    = cv.CreateMat(hist_height, width, cv.CV_8UC3)
+    out         = cv.CreateMat(height + hist_height, width, cv.CV_8UC3)
+    contours    = cv.CreateMat(height, width, cv.CV_8UC3)
 
     print 'load object db and create flann index ..'
-    db = pickle.load(open('../out/pickled.db'))
-    flann = pyflann.FLANN()
+    db      = pickle.load(open('../out/pickled.db'))
+    flann   = pyflann.FLANN()
     # FIXME: currently without depth information because not aligned
-    params = flann.build_index(db['features'][:, :-1], target_precision=0.95)
+    params  = flann.build_index(db['features'][:, :-1], target_precision=0.95)
 
     # start the sifting threadpool
     print 'starting the sift threads ..'
-    sift_pool = Queue.Queue(0)
-    threads = []
+    sift_pool   = Queue.Queue(0)
+    threads     = []
     for i in range(n_threads):
         t = SiftThread(width, height, sift_pool, stats, flann, db['meta'])
         t.setDaemon(True)
         t.start()
         threads.append(t)
     
-
+    # iterate and iterate forever
     while True:
 
         return_code = g_context.WaitAndUpdateAll()
 
         # get the images
-        # TODO: ueber frames mitteln (entweder nur im histogramm,
-        # vielleicht aber auch ueber ganze frames (mit discount factor)
+        image_data_raw = image_generator.GetBGR24ImageMapRaw()        
         depth_data_raw = depth_generator.GetGrayscale16DepthMapRaw()
         cv.SetData(current_depth_frame, depth_data_raw)
         cv.Convert(current_depth_frame, for_thresh)
-        image_data_raw = image_generator.GetBGR24ImageMapRaw()
         cv.SetData(current_image_frame, image_data_raw)
 
         # initialize matrices for drawing and start timing
@@ -132,19 +132,19 @@ try:
         cv.SetZero(contours)
         
         # compute and smooth histogram
-        depth = np.asarray(current_depth_frame)
-        hist, _ = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
-        hist = np.convolve(hist, np.ones(k_width) / k_width, 'same')
+        depth    = np.asarray(current_depth_frame)
+        hist, _  = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
+        hist     = np.convolve(hist, np.ones(k_width) / k_width, 'same')
         max_hist = np.max(hist)
         timing['t_histo'] += time.time() - t0
 
         # histogram clustering
         start, end = 0, 0
-        c = 1
+        c          = 1
         conts_list = []
 
         for i in range(len(hist)-1):
-            cur_value = hist[i]
+            cur_value  = hist[i]
             next_value = hist[i + 1]
             
             # still walking up the hill
@@ -208,15 +208,15 @@ try:
             for cont in conts_list:
                 
                 r2 = Rect(cv.BoundingRect(cont))
-                w = min(r1.x2, r2.x2) - max(r1.x1, r2.x1)
-                h = min(r1.y2, r2.y2) - max(r1.y1, r2.y1)
+                w  = min(r1.x2, r2.x2) - max(r1.x1, r2.x1)
+                h  = min(r1.y2, r2.y2) - max(r1.y1, r2.y1)
                 overlap = w * h
                 
                 # we found it
                 if w > 0 and h > 0 and overlap > 0.5 * area:
-                    obj.cont = cont            # update the contour to track movements
+                    obj.cont  = cont           # update the contour to track movements
                     obj.count = obj.count + 1  # this helps new objects to recover from negative init
-                    found = True
+                    found     = True
                     conts_list.remove(cont)     
                     break
 
@@ -258,11 +258,11 @@ try:
                 cv.Line(contours, obj.box_points[j], obj.box_points[(j + 1) % 4], col)
 
         # output images
-        outroi = (0, hist_height, width, height)
-        a = cv.GetSubRect(out, outroi)
+        outroi  = (0, hist_height, width, height)
+        a       = cv.GetSubRect(out, outroi)
         cv.AddWeighted(contours, 0.5, current_image_frame, 0.5, 0, a)
         histroi = (0, 0, width, hist_height)
-        a = cv.GetSubRect(out, histroi)
+        a       = cv.GetSubRect(out, histroi)
         cv.Copy(hist_img, a)
         loop_c += 1
         timing['t_draw'] += time.time() - t0
