@@ -1,0 +1,15 @@
+
+dependencies:
+
+opencv
+libsiftfast
+flann
+
+onipy 
+	svn checkout http://onipy.googlecode.com/svn/trunk/
+	tested with revision 20
+	for image alignment apply my patch with the following commands 
+		cd ONIPY_FOLDER
+		patch -p0 -i OBJ_ATT_FOLDER/patches/image_alignment.patch
+	
+	
