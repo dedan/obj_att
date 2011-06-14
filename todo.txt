@@ -1,0 +1,95 @@
+
+
+experiments to do
+-----------------
+
+compute the relation between the depth value in a keypoint and the scale of
+this point. We expect it to be constant.
+
+
+how to build the model (database of objects)
+
+nach dem messen der sift feature die trajektorien über frames berechnen und über die features
+pro trajektorie mitteln (median) über die distanzwerte auch mitteln
+vielleicht auf peaks in der distanztrajektorie achten
+
+die beiden verteilungen dieses verhaltnisses anschauen, bei unterschiedlichen kamera abständen
+
+
+ich könnte dann auch mal einfach im zimmer filmen und das gegen unser objekt matchen, das sind dann alles negative matches
+und schauen ob dort das verhältnis anders ist. das könnte man schön plotten.
+
+dann vielleicht einen schwellwert setzten um die klassen zu trennen
+
+
+
+
+objekt erkennen
+---------------
+
+
+clustern mit histogram
+-im histogram clustern
+-schauen ob manche punkte im cluster auch im euklidischen raum benachbart sind
+-um protoobjekte zu validieren oder auszuschliessen erst mal auf das farbhistogram schauen
+
+
+konnektivität und räumliche nähe berücksichtigen
+von vorne nach hinten laufen und in jedem cluster auf konnektivität schauen
+
+
+objektselektion
+---------------
+
+kompaktheit:
+eine box um den histogramm cluster machen und schauen wieviel der flaeche sie bedecken.
+eine wand wuerde viel mehr abdecken als eine gruppe von objekten
+
+
+vor sift vielleicht die tiefenkonturen als maske benutzen
+(auch in report)
+
+einen graphen machen wie schnell sift auf dem ganzen bild und wie viel gewinnen wir durch unsere methode.
+
+python mit c++ code vergleichen (nur die vorverarbeitung)
+
+bringt runtersamplen des tiefenbildees etwas
+
+die objekte auch mit dem farbhistogram beschriften
+
+einen graphen wie sich das vorsortieren (aussortieren von zu kleinen flaechen) auf die geschwindigkeit auswirkt
+
+welche bilder brauche ich fuer dokumentation?
+
+robustheit des trackings zeigen, nicht nur laufzeitanalysen
+(vielleicht richtige stabil, tafel nicht so gut)
+
+schauen ob das product aus sift scale und tiefeninformation fuer ein objekt in verschiednen entfernungen konstant ist
+
+die prioritätenliste etwas cleverer machen:
+	sift features in gewissen abständen neu berechnen (ein objekt könnte sich ja drehen)
+	neue noch nicht untersuchte objekte haben höchste priorität (innerhalb dieser prioritätsklasse vielleicht auch noch nach größe, abstand, salienz, etc ordnen)
+	wer schon mal untersucht aber nichts gefunden wurde, der bleibt auch in der liste (nächste klasse)
+	untersucht und gefunden (regelmäßig wieder siften wegen möglicher rotation, etc) niedrigste klasse
+
+1: new objects (count > e.g. 20)
+2: 
+
+macht die maskierung die sift feature berechnung schneller?
+
+warum nicht alle prozesorren ausgelastet mit threadpool?
+
+
+        # TODO: maybe take a mean over frames
+        # either only in the histogra ueber frames mitteln (entweder nur im histogramm,
+        # vielleicht aber auch ueber ganze frames (mit discount factor)
+
+
+free viewing macht salienz sinn, sonst ist aufmerksamkeit wohl eher task abhaengig.
+
+sollen wir vielleicht die hochaufloesenden bilder von der kinect nehmen?
+sind die trotzdem aligned?
+klappt das zeitlich noch?
+
+
+	
