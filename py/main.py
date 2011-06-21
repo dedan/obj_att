@@ -1,4 +1,5 @@
 
+from numpy.ma.core import floor
 from protoobj import Obj, Rect, SiftThread, random_color
 import OpenNIPythonWrapper as onipy
 import Queue
@@ -19,6 +20,7 @@ n_bins      = 600           # resolution of the histogram
 max_range   = 4000          # minimum and maximum depth values
 min_range   = 800           # used in the histogram
 k_width     = 5             # width (in pixels) of kernel used for smoothing of the histogram
+k_width2    = 15            # take a wider kernel in the second half of the histogram because resolution is worse there
 perc        = 0.2           # a point with value perc * peak of last hill in histogram is end of a cluster
 n_sift      = 20            # only compute sift features after knowing a object for n_sift frames
 n_forget    = -3            # forget an object after not seeing it for n_forget frames
@@ -136,10 +138,13 @@ try:
         cv.SetZero(contours)
         
         # compute and smooth histogram
-        depth    = np.asarray(current_depth_frame)
-        hist, _  = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
-        hist     = np.convolve(hist, np.ones(k_width) / k_width, 'same')
-        max_hist = np.max(hist)
+        depth               = np.asarray(current_depth_frame)
+        hist, bins          = np.histogram(depth, n_bins, range=(min_range, max_range), normed=False)
+        hist_half           = floor(n_bins/2)
+        hist[:hist_half]    = np.convolve(hist[:hist_half], np.ones(k_width) / k_width, 'same')
+        hist[hist_half:]    = np.convolve(hist[hist_half:], np.ones(k_width2) / k_width2, 'same')
+        
+        max_hist    = np.max(hist)
         timing['t_histo'] += time.time() - t0
 
         # histogram clustering
@@ -158,9 +163,9 @@ try:
             # arrived in a valley
             if ((cur_value < perc * hist[end]) & (1.1 * cur_value < next_value)):
 
-                # cut out a certain depth layer                
-                cv.Threshold(for_thresh, min_thresh, start * 10, 255, cv.CV_THRESH_BINARY)
-                cv.Threshold(for_thresh, max_thresh, i * 10, 255, cv.CV_THRESH_BINARY_INV)
+                # cut out a certain depth layer
+                cv.Threshold(for_thresh, min_thresh, bins[start], 255, cv.CV_THRESH_BINARY)
+                cv.Threshold(for_thresh, max_thresh, bins[i], 255, cv.CV_THRESH_BINARY_INV)
                 cv.And(min_thresh, max_thresh, and_thresh)
                 
                 # erode the layer and find contours
