@@ -32,9 +32,11 @@ min_cont_area = 500         # minimum area of a contour
 max_cont_area = 5000        # maximum area of a contour
 record_video = False         # should a video be recorded?
 t_sift_plot  = False         # plot sift patch size to sift execution time relation
-draw_contours   = True       # draw the contours (detected from depth image)
+draw_contours   = False       # draw the contours (detected from depth image)
 draw_keypoints  = True       # draw sift keypoints
 draw_box        = True       # draw a box around the detected objects
+draw_cluster    = True       # draw the histogram clustering
+erode           = False       # apply morphological operator
 
 
 # some constants
@@ -169,11 +171,15 @@ try:
                 cv.And(min_thresh, max_thresh, and_thresh)
                 
                 # erode the layer and find contours
-                cv.Erode(and_thresh, and_thresh, elem)
+                if erode:
+                    cv.Erode(and_thresh, and_thresh, elem)
                 conts = cv.FindContours(and_thresh, storage, cv.CV_RETR_EXTERNAL, cv.CV_CHAIN_APPROX_SIMPLE)
                 
                 # collect all interesting contours in a list
                 while conts:
+                    if draw_cluster:
+                        cv.FillPoly(contours, [conts], color_tab[c])
+
                     if len(conts) > cont_length and min_cont_area < cv.ContourArea(conts) < max_cont_area:
                         conts_list.append(list(conts))
                     conts = conts.h_next()
@@ -190,11 +196,11 @@ try:
                        (int(i * x_scale + x_scale), int(hist_height - next_value * hist_height / max_hist)),
                        (int(i * x_scale), int(hist_height - cur_value * hist_height / max_hist))]
             except:
-                print 'don\t put your hand in front of the camera !!!'
+                print 'don\'t put your hand in front of the camera !!!'
             cv.FillConvexPoly(hist_img, pts, color_tab[c])
-          
-        # time the histogram clustering  
-        timing['t_pre'] += time.time() - t0      
+                  
+        # time the histogram clustering
+        timing['t_pre'] += time.time() - t0
         
         # iterate over tracked objects
         sift = False

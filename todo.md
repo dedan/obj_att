@@ -1,4 +1,11 @@
 
+
+bugs
+====
+
+* when plotting the histogram clustering it is visible that the cluster from the big distant *pile* is not plotted as a cluster
+
+
 experiments to do
 =================
 
