@@ -38,16 +38,42 @@ draw_box        = True       # draw a box around the detected objects
 draw_cluster    = True       # draw the histogram clustering
 erode           = False       # apply morphological operator
 
-
 # some constants
 OPENNI_INITIALIZATION_FILE = "../config/BasicColorAndDepth.xml"
 KEY_ESC     = 27
 hist_height = 64
 
+# initialization stuff
+print 'loading ..'
+save_count  = 0
+objects     = []
+stats       = []
+current_key = -1
+timing      = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
+loop_c      = 0
+font    = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)          # opencv font
+elem    = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)   # used by the morphological operator (erode)
+storage = cv.CreateMemStorage(0)                                        # needed by find contours
+writer  = None
+
 # compute a timestamp for output file
 outpath += datetime.datetime.now().strftime('%d%m%y_%H%M%S')
+os.mkdir(outpath)
 # create a list of random colors
 color_tab = [random_color() for i in range(n_colors)]
+
+help = """
+        press 'v' to start or stop video recording
+        press 's' to save the current images
+        press 'c' to draw the contours
+        press 'b' to draw the boxes
+        press 'k' to draow the keypoints
+        press 'e' to apply erosion
+        press 'l' to draw the layers of the histogram clustering
+        press 'h' to print this help again
+    """
+
+print help
 
 # open the driver
 g_context   = onipy.OpenNIContext()
@@ -58,17 +84,6 @@ if return_code != onipy.XN_STATUS_OK:
 
 
 try:
-    # initialization stuff
-    print 'loading ..'    
-    save_count  = 0
-    objects     = []
-    stats       = []
-    current_key = -1
-    timing      = {'t_draw': 0, 't_histo': 0, 't_track': 0, 't_pre': 0}
-    loop_c      = 0
-    font    = cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, 8)          # opencv font
-    elem    = cv.CreateStructuringElementEx(8, 8, 4, 4, cv.CV_SHAPE_RECT)   # used by the morphological operator (erode)
-    storage = cv.CreateMemStorage(0)                                        # needed by find contours
     
     # the image generators
     image_generator = onipy.OpenNIImageGenerator()
@@ -80,14 +95,6 @@ try:
 
     # align the images
     depth_generator.set_viewpoint(image_generator)
-    
-    # open video file
-    if record_video:
-        if not os.path.exists(outpath):
-            os.mkdir(outpath)
-            writer = cv.CreateVideoWriter(outpath + '/video.avi', cv.FOURCC('P', 'I', 'M', '1'), 
-                                          30, (width, height + hist_height))
-
 
     # matrix headers and matrices for computation buffers
     current_image_frame = cv.CreateImageHeader(image_generator.Res(), cv.IPL_DEPTH_8U, 3)
@@ -302,7 +309,7 @@ try:
         # show the images
         cv.ShowImage("Depth Stream", contours)
         cv.ShowImage("conts", out)
-        if record_video:
+        if writer:
             bla = cv.CreateImage((width, height + hist_height), cv.IPL_DEPTH_8U, 3)
             cv.SetData(bla, out.tostring())
             cv.WriteFrame(writer, bla)
@@ -313,19 +320,37 @@ try:
             for thread in threads:
                 thread.stop()
             break
-        
-        # pickle the contours and save images
         elif current_key == ord('s'):
-            if not os.path.exists(outpath):
-                os.mkdir(outpath)
             scaled = cv.CreateMat(height, width, cv.CV_8UC1)
             cv.ConvertScale(current_depth_frame, scaled, 0.05)
             cv.SaveImage(outpath + '/image_%d.jpg' % save_count, current_image_frame)
             cv.SaveImage(outpath + '/depth_%d.jpg' % save_count, scaled)
             cv.SaveImage(outpath + '/out_%d.jpg' % save_count, out)
-            with open(outpath + '/objects_%d.pickle' % save_count, 'w') as f:
-                pickle.dump(objects, f)
-            save_count = save_count + 1
+            save_count += 1
+        elif current_key == ord('v'):
+            if writer:
+                writer = None
+                print 'video recording stopped'
+            else:
+                print 'start recording video to: %s/video_%d.avi' % (outpath, save_count)
+                writer = cv.CreateVideoWriter(outpath + '/video_%d.avi' % save_count,
+                                              cv.FOURCC('P', 'I', 'M', '1'),
+                                              30,
+                                              (width, height + hist_height))
+                save_count += 1
+        elif current_key == ord('h'):
+            print help
+        elif current_key == ord('c'):
+            draw_contours = not draw_contours
+        elif current_key == ord('b'):
+            draw_box = not draw_box
+        elif current_key == ord('k'):
+            draw_keypoints = not draw_keypoints
+        elif current_key == ord('e'):
+            erode = not erode
+        elif current_key == ord('l'):
+            draw_cluster = not draw_cluster
+
 
 except Exception as inst:
     print inst
@@ -336,6 +361,10 @@ finally:
     for key, val in timing.iteritems():
         print "%s: %f" % (key, val / loop_c)
     g_context.Shutdown()
+    
+    # delete the output folder if nothing was saved
+    if len(os.listdir(outpath)) == 0:
+        os.rmdir(outpath)
     
     # finally plot how sift execution time depends on patch size
     if t_sift_plot:
