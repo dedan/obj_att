@@ -4,6 +4,8 @@ dependencies:
 opencv
 libsiftfast
 flann
+pylab
+numpy
 
 onipy 
 	svn checkout http://onipy.googlecode.com/svn/trunk/

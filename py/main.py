@@ -29,7 +29,7 @@ n_colors    = 100           # number of random colors which are created for obje
 outpath     = '../out/'     # the images and video are written here
 cont_length = 50            # minumum lenght of a contour (nodes of the polygon)
 min_cont_area = 500         # minimum area of a contour
-max_cont_area = 5000        # maximum area of a contour
+max_cont_area = 15000        # maximum area of a contour
 record_video = False         # should a video be recorded?
 t_sift_plot  = False         # plot sift patch size to sift execution time relation
 draw_contours   = False       # draw the contours (detected from depth image)
@@ -134,7 +134,7 @@ try:
         return_code = g_context.WaitAndUpdateAll()
 
         # get the images
-        image_data_raw = image_generator.GetBGR24ImageMapRaw()        
+        image_data_raw = image_generator.GetBGR24ImageMapRaw()
         depth_data_raw = depth_generator.GetGrayscale16DepthMapRaw()
         cv.SetData(current_depth_frame, depth_data_raw)
         cv.Convert(current_depth_frame, for_thresh)
@@ -152,6 +152,7 @@ try:
         hist_half           = floor(n_bins/2)
         hist[:hist_half]    = np.convolve(hist[:hist_half], np.ones(k_width) / k_width, 'same')
         hist[hist_half:]    = np.convolve(hist[hist_half:], np.ones(k_width2) / k_width2, 'same')
+
         
         max_hist    = np.max(hist)
         timing['t_histo'] += time.time() - t0
@@ -264,9 +265,8 @@ try:
             
             if draw_contours:
                 cv.FillPoly(contours, [obj.cont], obj.color)
-            if obj.frames != None and draw_keypoints:
-                col = cv.Scalar(0, 255, 0)
-                
+                                
+            if draw_keypoints and obj.frames != None:
                 # label with number of keypoints
                 cv.PutText(contours,
                            "k: %s" % obj.ids,
@@ -280,9 +280,12 @@ try:
                                      (int(obj.frames[i, 0]) - 1, int(obj.frames[i, 1]) - 1),
                                      (int(obj.frames[i, 0]) + 1, int(obj.frames[i, 1]) + 1),
                                      cv.Scalar(255, 255, 255))
-            else:
-                col = cv.Scalar(0, 0, 255)
+
             if draw_box:
+                if obj.frames != None:
+                    col = cv.Scalar(0, 255, 0)
+                else:
+                    col = cv.Scalar(0, 0, 255)
                 for j in range(4):
                     cv.Line(contours, obj.box_points[j], obj.box_points[(j + 1) % 4], col)
 
@@ -296,16 +299,6 @@ try:
         loop_c += 1
         timing['t_draw'] += time.time() - t0
         
-        # print execution time statistics
-        i = 0
-        for key, val in timing.iteritems():
-            cv.PutText(out,
-                       "%s: %f" % (key, val / loop_c),
-                       (0, height + hist_height - (len(timing) * 20) + (i * 15)),
-                       font,
-                       cv.Scalar(255, 255, 255))
-            i += 1
-
         # show the images
         cv.ShowImage("Depth Stream", contours)
         cv.ShowImage("conts", out)
